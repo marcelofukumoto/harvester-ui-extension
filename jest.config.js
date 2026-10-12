@@ -20,6 +20,8 @@ module.exports = {
     // At build time @pkg/<path> is resolved to the package that imports it (see vue.config.js of @rancher/shell)
     '^@pkg/harvester/(.*)$':                                                         '<rootDir>/pkg/harvester/$1',
     '^@pkg/(.*)$':                                                                   '<rootDir>/pkg/harvester/$1',
+    // clipboard-polyfill only declares an ESM export, map it to its ESM build (transpiled, see transformIgnorePatterns)
+    '^clipboard-polyfill$':                                                          '<rootDir>/node_modules/clipboard-polyfill/dist/es6/clipboard-polyfill.es6.js',
     '\\.(jpe?g|png|gif|webp|svg|mp4|webm|ogg|mp3|wav|flac|aac|woff2?|eot|ttf|otf)$': '<rootDir>/svgTransform.js',
   },
   modulePathIgnorePatterns: ['<rootDir>/pkg/harvester/node_modules'],
@@ -29,11 +31,12 @@ module.exports = {
     '^.+\\.vue$':    '<rootDir>/vue3JestRegisterTs.js',
     // isolatedModules: transpile only, the types are not checked while testing
     '^.+\\.tsx?$':   ['ts-jest', { tsconfig: { sourceMap: true, isolatedModules: true } }],
-    '^.+\\.m?jsx?$': ['babel-jest', {
-      configFile: false,
-      presets:    [['@babel/preset-env', { targets: { node: 'current' } }]],
-    }],
-    '^.+\\.svg$': '<rootDir>/svgTransform.js',
+    // Like the Rancher dashboard: the project babel config (the one of @rancher/shell)
+    '^.+\\.m?jsx?$': '<rootDir>/node_modules/babel-jest',
+    '^.+\\.svg$':    '<rootDir>/svgTransform.js',
   },
-  transformIgnorePatterns: ['/node_modules/(?!@rancher/shell).+\\.js$'],
+  // Like the Rancher dashboard: these packages are ESM only, so Jest has to transpile them
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@rancher/shell|color|color-string|color-convert|color-name|vee-validate|@vee-validate|clipboard-polyfill|intl-messageformat|@formatjs|@replit/codemirror-vim-core)/)',
+  ],
 };
