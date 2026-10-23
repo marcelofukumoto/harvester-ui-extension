@@ -1027,15 +1027,25 @@ harvester:
         connection:
           menuLabel: Connection
           description: Connected to {name}. If the screen stops updating, reconnecting usually fixes it.
-        customShortcutKeys: Custom Shortcut Keys
-        management: Management Shortcut Keys
-        record:
-          start: Record
-          recording: Recording
-          stop: Stop Recording
-          tips: Press the record button to capture your keyboard inputs.
-          send: Send
-          preferredKeys: Preferred Custom Shortcut Keys
+        customKeys:
+          title: Custom shortcuts
+          description: Save key combinations you send often. They appear at the top of the Shortcut keys menu.
+          new: New shortcut
+          combination: Key combination
+          reserved: Combinations your browser or OS reserves, like Ctrl+Alt+Del or Ctrl+W, can’t be recorded. Use the modifier toggles in the Shortcut keys menu for those.
+          duplicate: This key combination is already saved.
+          name: Name (optional)
+          clear: Clear
+          add: Add shortcut
+          saved: 'Saved shortcuts ({count})'
+          delete: 'Delete {name}'
+          done: Done
+          saveError: Unable to save the custom shortcuts
+          recorder:
+            empty: Click here, then press a key combination
+            recording: Press a key combination…
+            recordingStatus: Recording
+            again: Click to record again
         viewOptions:
           scaling: Scaling
           automatic: Automatic

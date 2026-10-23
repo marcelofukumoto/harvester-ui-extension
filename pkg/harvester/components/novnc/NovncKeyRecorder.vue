@@ -1,0 +1,183 @@
+<script>
+import RcStatusIndicator from '@components/Pill/RcStatusIndicator';
+import RcTag from '@components/Pill/RcTag';
+import { MODIFIER_KEYS, keyLabel, recordKey } from './shortcuts';
+
+export default {
+  name: 'NovncKeyRecorder',
+
+  components: { RcStatusIndicator, RcTag },
+
+  props: {
+    // The recorded keys, as stored for a shortcut.
+    value: {
+      type:    Array,
+      default: () => [],
+    },
+
+    ariaLabelledby: {
+      type:    String,
+      default: undefined,
+    },
+  },
+
+  emits: ['update:value'],
+
+  data() {
+    return { recording: false, pending: [] };
+  },
+
+  computed: {
+    state() {
+      if (this.recording) {
+        return 'recording';
+      }
+
+      return this.value.length ? 'captured' : 'empty';
+    },
+
+    labels() {
+      return this.value.map((K) => keyLabel(K.key));
+    },
+  },
+
+  methods: {
+    start() {
+      this.pending = [];
+      this.recording = true;
+    },
+
+    stop() {
+      this.recording = false;
+      this.pending = [];
+    },
+
+    // Modifiers wait for the key they go with; the first other key ends the combination.
+    onKeydown(event) {
+      if (!this.recording) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this.start();
+        }
+
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.repeat) {
+        return;
+      }
+
+      if (MODIFIER_KEYS.includes(event.key)) {
+        if (!this.pending.some((K) => K.key === event.key)) {
+          this.pending.push(recordKey(event));
+        }
+
+        return;
+      }
+
+      this.$emit('update:value', [...this.pending, recordKey(event)]);
+      this.stop();
+    },
+  },
+};
+</script>
+
+<template>
+  <div
+    class="key-recorder"
+    :class="`key-recorder--${ state }`"
+    role="button"
+    tabindex="0"
+    :aria-labelledby="ariaLabelledby"
+    :aria-pressed="recording"
+    data-testid="vnc-key-recorder"
+    @click="start"
+    @keydown="onKeydown"
+    @blur="stop"
+  >
+    <template v-if="state === 'recording'">
+      <span class="key-recorder__hint">{{ t('harvester.virtualMachine.detail.console.customKeys.recorder.recording') }}</span>
+      <span class="key-recorder__status">
+        <RcStatusIndicator
+          shape="disc"
+          status="error"
+        />
+        {{ t('harvester.virtualMachine.detail.console.customKeys.recorder.recordingStatus') }}
+      </span>
+    </template>
+
+    <template v-else-if="state === 'captured'">
+      <span class="key-recorder__keys">
+        <RcTag
+          v-for="(label, i) in labels"
+          :key="i"
+          type="active"
+        >
+          {{ label }}
+        </RcTag>
+      </span>
+      <span class="key-recorder__again">{{ t('harvester.virtualMachine.detail.console.customKeys.recorder.again') }}</span>
+    </template>
+
+    <span
+      v-else
+      class="key-recorder__hint"
+    >{{ t('harvester.virtualMachine.detail.console.customKeys.recorder.empty') }}</span>
+  </div>
+</template>
+
+<style lang="scss" scoped>
+  .key-recorder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background: var(--input-bg);
+    cursor: pointer;
+
+    &--empty {
+      border-style: dashed;
+    }
+
+    &--recording {
+      border: 2px solid var(--primary-keyboard-focus);
+      padding: 0 13px;
+    }
+
+    &:focus-visible {
+      @include focus-outline;
+    }
+
+    &__hint {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 21px;
+    }
+
+    &__keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    &__status,
+    &__again {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    &__again {
+      color: var(--muted);
+    }
+  }
+</style>

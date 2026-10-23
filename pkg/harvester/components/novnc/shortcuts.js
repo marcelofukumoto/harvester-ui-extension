@@ -1,5 +1,8 @@
-// Saved custom shortcuts live in the user preference as a JSON list. Older entries are a bare list of
-// recorded keydown events; newer ones are { name, keys } so the shortcut can carry a name.
+// Saved custom shortcuts live in the Rancher user preference, which every Harvester UI the user opens
+// shares. The keys stay a list of recorded keydown events per shortcut, the format older versions read;
+// names go in a separate preference so those versions keep working.
+export const SHORTCUTS_PREFERENCE = 'prefered-shortcut-keys';
+export const SHORTCUT_NAMES_PREFERENCE = 'vnc-shortcut-names';
 
 const KEY_LABELS = {
   Control: 'Ctrl',
@@ -7,6 +10,8 @@ const KEY_LABELS = {
   Delete:  'Del',
   ' ':     'Space',
 };
+
+export const MODIFIER_KEYS = ['Control', 'Shift', 'Alt', 'Meta'];
 
 export function keyLabel(key = '') {
   if (KEY_LABELS[key]) {
@@ -31,4 +36,48 @@ export function shortcutLabels(shortcut) {
 // Two shortcuts are the same when they press the same keys, whatever they are called.
 export function shortcutId(shortcut) {
   return (shortcut?.keys || []).map((K) => K.code || K.key).join('+');
+}
+
+// Only what sending a shortcut needs, so a recorded KeyboardEvent can be stored.
+export function recordKey(event) {
+  const {
+    key, keyCode, code, location, charCode
+  } = event;
+
+  return {
+    key, keyCode, code, location, charCode
+  };
+}
+
+function parse(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch (err) {
+    return fallback;
+  }
+}
+
+export function readShortcuts(preference) {
+  const list = parse(preference?.data?.[SHORTCUTS_PREFERENCE], []);
+  const names = parse(preference?.data?.[SHORTCUT_NAMES_PREFERENCE], {});
+
+  return (Array.isArray(list) ? list : [])
+    .map(normalizeShortcut)
+    .filter((shortcut) => shortcut.keys.length)
+    .map((shortcut) => ({ ...shortcut, name: shortcut.name || names?.[shortcutId(shortcut)] || '' }));
+}
+
+export function writeShortcuts(preference, shortcuts) {
+  const names = {};
+
+  shortcuts.forEach((shortcut) => {
+    if (shortcut.name) {
+      names[shortcutId(shortcut)] = shortcut.name;
+    }
+  });
+
+  preference.data[SHORTCUTS_PREFERENCE] = JSON.stringify(shortcuts.map((shortcut) => shortcut.keys));
+  preference.data[SHORTCUT_NAMES_PREFERENCE] = JSON.stringify(names);
+
+  return preference.save();
 }

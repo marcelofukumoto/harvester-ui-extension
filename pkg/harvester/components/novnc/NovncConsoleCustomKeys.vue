@@ -1,264 +1,302 @@
 <script>
 import { STEVE } from '@shell/config/types';
-import Banner from '@components/Banner/Banner.vue';
-import AsyncButton from '@shell/components/AsyncButton';
-import ModalWithCard from '@shell/components/ModalWithCard';
-
-const PREFERED_SHORTCUT_KEYS = 'prefered-shortcut-keys';
+import { RcButton } from '@components/RcButton';
+import { RcIcon } from '@components/RcIcon';
+import { RcModal } from '@components/RcModal';
+import RcTag from '@components/Pill/RcTag';
+import { LabeledInput } from '@components/Form/LabeledInput';
+import NovncKeyRecorder from './NovncKeyRecorder';
+import { readShortcuts, shortcutId, shortcutLabels, writeShortcuts } from './shortcuts';
 
 export default {
   name: 'NovncConsoleCustomKeys',
 
-  emits: ['close'],
-
   components: {
-    ModalWithCard, Banner, AsyncButton
+    RcButton, RcIcon, RcModal, RcTag, LabeledInput, NovncKeyRecorder
   },
+
+  props: {
+    show: {
+      type:    Boolean,
+      default: false,
+    },
+  },
+
+  emits: ['close'],
 
   data() {
     return {
-      keysRecord:            [],
-      addedShortcutKeys:     [],
-      preferredShortcutKeys: [],
-      isRecording:           false,
+      keys:   [],
+      name:   '',
+      saving: false,
     };
   },
 
   computed: {
-    savedShortcutKeys() {
-      const preference = this.$store.getters['management/all'](STEVE.PREFERENCE);
-      const preferedShortcutKeys = preference?.[0]?.data?.[PREFERED_SHORTCUT_KEYS];
-      let out = [];
-
-      if (!preferedShortcutKeys) {
-        return out;
-      }
-
-      try {
-        out = JSON.parse(preferedShortcutKeys);
-      } catch (err) {
-        this.$store.dispatch('growl/fromError', {
-          title: this.t('generic.notification.title.error', { name: this.t('harvester.virtualMachine.detail.console.customShortcutKeys') }),
-          err,
-        }, { root: true });
-      }
-
-      return out;
+    preference() {
+      return this.$store.getters['management/all'](STEVE.PREFERENCE)?.[0];
     },
 
-    displayedKeys() {
-      const out = this.addedShortcutKeys.concat(this.preferredShortcutKeys).map((item) => {
-        const out = item.map((K) => ` <code>${ K.key.charAt(0).toUpperCase() + K.key.slice(1) }</code>`);
-
-        return out.join(',');
-      });
-
-      return out;
+    shortcuts() {
+      return readShortcuts(this.preference).map((shortcut) => ({ ...shortcut, labels: shortcutLabels(shortcut) }));
     },
 
-    recordButton() {
-      if (this.isRecording) {
-        return 'harvester.virtualMachine.detail.console.record.stop';
-      }
+    isDuplicate() {
+      const id = shortcutId({ keys: this.keys });
 
-      return 'harvester.virtualMachine.detail.console.record.start';
-    },
-
-    keysRecordFormat() {
-      if (!this.isRecording && this.keysRecord.length === 0) {
-        return this.t('harvester.virtualMachine.detail.console.record.tips');
-      }
-
-      const out = this.keysRecord.map((item) => ` <code>${ item.key.charAt(0).toUpperCase() + item.key.slice(1) }</code>`);
-
-      return `Keys: ${ out.join(',') }`;
+      return !!this.keys.length && this.shortcuts.some((shortcut) => shortcutId(shortcut) === id);
     },
 
     canAdd() {
-      const hasRecord = this.keysRecord.length > 0;
-      let validationList = [].concat(this.preferredShortcutKeys, this.addedShortcutKeys);
-
-      if (!hasRecord) {
-        return false;
-      }
-
-      validationList.push(this.keysRecord);
-
-      validationList = validationList.map((item) => {
-        const out = item.map((K) => K.key);
-
-        return out.join(',');
-      });
-
-      return validationList.length === new Set(validationList).size;
-    },
-  },
-
-  watch: {
-    savedShortcutKeys: {
-      handler() {
-        this.preferredShortcutKeys = [].concat(this.savedShortcutKeys) || [];
-      },
-      immediate: true
+      return !!this.keys.length && !this.isDuplicate && !this.saving;
     },
   },
 
   methods: {
-    closeRecordingModal() {
-      window.removeEventListener('keydown', this.handleShortcut);
-      this.$emit('close');
+    clear() {
+      this.keys = [];
+      this.name = '';
     },
 
-    toggleRecording() {
-      this.isRecording = !this.isRecording;
+    async add() {
+      if (!this.canAdd) {
+        return;
+      }
 
-      if (this.isRecording) {
-        this.keysRecord = [];
-        window.addEventListener('keydown', this.handleShortcut);
-      } else {
-        window.removeEventListener('keydown', this.handleShortcut);
+      const added = await this.save([...this.shortcuts, { name: this.name.trim(), keys: this.keys }]);
+
+      if (added) {
+        this.clear();
       }
     },
 
-    handleShortcut(event) {
-      event.preventDefault();
-
-      const {
-        key, keyCode, code, location, charCode
-      } = event;
-
-      this.keysRecord.push({
-        key, keyCode, code, location, charCode
-      });
+    remove(index) {
+      this.save(this.shortcuts.filter((_, i) => i !== index));
     },
 
-    addShortcutKey() {
-      this.addedShortcutKeys.push([].concat(this.keysRecord));
-    },
-
-    removeKey(keys) {
-      const key = keys.replace(/(\s*)<code>|<\/code>/g, '').replace(/\s*,\s*/g, ',');
-
-      this.addedShortcutKeys = this.addedShortcutKeys.filter((item) => {
-        const formatkey = item.map((K) => K.key.charAt(0).toUpperCase() + K.key.slice(1)).join(',');
-
-        return formatkey !== key;
-      });
-
-      this.preferredShortcutKeys = this.preferredShortcutKeys.filter((item) => {
-        const formatkey = item.map((K) => K.key.charAt(0).toUpperCase() + K.key.slice(1)).join(',');
-
-        return formatkey !== key;
-      });
-    },
-
-    async saveKeys(buttonCb) {
-      const out = [].concat(this.preferredShortcutKeys, this.addedShortcutKeys);
-      const preference = this.$store.getters['management/all'](STEVE.PREFERENCE)?.[0];
+    // Every change is saved straight away, so closing the modal can never lose one.
+    async save(shortcuts) {
+      this.saving = true;
 
       try {
-        preference.data[PREFERED_SHORTCUT_KEYS] = JSON.stringify(out);
-        await preference.save();
-        this.closeRecordingModal();
-        buttonCb(true);
+        await writeShortcuts(this.preference, shortcuts.map(({ name, keys }) => ({ name, keys })));
+
+        return true;
       } catch (err) {
-        buttonCb(false);
+        this.$store.dispatch('growl/fromError', {
+          title: this.t('harvester.virtualMachine.detail.console.customKeys.saveError'),
+          err,
+        }, { root: true });
+
+        return false;
+      } finally {
+        this.saving = false;
       }
     },
-  }
+  },
 };
 </script>
 
 <template>
-  <ModalWithCard
-    name="recordShortcutKeys"
-    :width="550"
+  <RcModal
+    :show="show"
+    size="medium"
+    :title="t('harvester.virtualMachine.detail.console.customKeys.title')"
+    data-testid="vnc-custom-keys-modal"
+    @close="$emit('close')"
   >
-    <template #title>
-      <t k="harvester.virtualMachine.detail.console.customShortcutKeys" />
-    </template>
+    <p class="custom-keys__intro">
+      {{ t('harvester.virtualMachine.detail.console.customKeys.description') }}
+    </p>
 
-    <template #content>
-      <div class="row">
-        <div class="col span-12">
-          <Banner color="info">
-            <span v-clean-html="keysRecordFormat"></span>
-          </Banner>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col span-12">
-          <button
-            class="btn bg-primary"
-            @click="toggleRecording"
-          >
-            <t :k="recordButton" />
-            <i
-              class="icon icon-fw"
-              :class="isRecording ? 'icon-dot-open' : 'icon-dot'"
-            />
-          </button>
-          <button
-            :disabled="!canAdd"
-            class="btn bg-primary"
-            @click="addShortcutKey"
-          >
-            <t k="generic.add" />
-          </button>
-        </div>
-      </div>
+    <section class="custom-keys__new">
+      <h3 class="custom-keys__heading">
+        {{ t('harvester.virtualMachine.detail.console.customKeys.new') }}
+      </h3>
 
-      <hr>
-
-      <div class="displayed-keys mt-20">
-        <h4
-          v-clean-html="t('harvester.virtualMachine.detail.console.record.preferredKeys')"
-          class="text-default-text"
+      <div class="custom-keys__field">
+        <span
+          id="vnc-key-combination-label"
+          class="custom-keys__label"
+        >{{ t('harvester.virtualMachine.detail.console.customKeys.combination') }}</span>
+        <NovncKeyRecorder
+          v-model:value="keys"
+          aria-labelledby="vnc-key-combination-label"
         />
-
-        <div class="displayed-banners">
-          <Banner
-            v-for="(keys,index) in displayedKeys"
-            :key="index"
-          >
-            <span v-clean-html="keys"></span>
-          </Banner>
-        </div>
-      </div>
-    </template>
-
-    <template #footer>
-      <div class="actions">
-        <button
-          class="btn role-secondary mr-20"
-          @click.prevent="closeRecordingModal"
+        <p
+          v-if="isDuplicate"
+          class="custom-keys__error"
+          role="alert"
         >
-          <t k="generic.close" />
-        </button>
-        <AsyncButton
-          mode="done"
-          @click="saveKeys"
-        />
+          {{ t('harvester.virtualMachine.detail.console.customKeys.duplicate') }}
+        </p>
+        <p class="custom-keys__help">
+          {{ t('harvester.virtualMachine.detail.console.customKeys.reserved') }}
+        </p>
       </div>
+
+      <LabeledInput
+        v-model:value="name"
+        :label="t('harvester.virtualMachine.detail.console.customKeys.name')"
+        data-testid="vnc-shortcut-name"
+      />
+
+      <div class="custom-keys__new-actions">
+        <RcButton
+          variant="secondary"
+          :disabled="!keys.length && !name"
+          @click="clear"
+        >
+          {{ t('harvester.virtualMachine.detail.console.customKeys.clear') }}
+        </RcButton>
+        <RcButton
+          variant="primary"
+          data-testid="vnc-add-shortcut"
+          :disabled="!canAdd"
+          @click="add"
+        >
+          {{ t('harvester.virtualMachine.detail.console.customKeys.add') }}
+        </RcButton>
+      </div>
+    </section>
+
+    <section v-if="shortcuts.length">
+      <h3 class="custom-keys__heading">
+        {{ t('harvester.virtualMachine.detail.console.customKeys.saved', { count: shortcuts.length }) }}
+      </h3>
+      <ul class="custom-keys__list">
+        <li
+          v-for="(shortcut, index) in shortcuts"
+          :key="index"
+          class="custom-keys__item"
+          data-testid="vnc-custom-shortcut"
+        >
+          <span class="custom-keys__item-name">{{ shortcut.name || shortcut.labels.join('+') }}</span>
+          <span class="custom-keys__item-keys">
+            <RcTag
+              v-for="(label, i) in shortcut.labels"
+              :key="i"
+              type="active"
+            >
+              {{ label }}
+            </RcTag>
+          </span>
+          <RcButton
+            variant="tertiary"
+            :aria-label="t('harvester.virtualMachine.detail.console.customKeys.delete', { name: shortcut.name || shortcut.labels.join('+') })"
+            :disabled="saving"
+            @click="remove(index)"
+          >
+            <RcIcon
+              type="trash"
+              size="inherit"
+            />
+          </RcButton>
+        </li>
+      </ul>
+    </section>
+
+    <template #actions="{ close }">
+      <RcButton
+        variant="primary"
+        size="large"
+        data-testid="vnc-custom-keys-done"
+        @click="close"
+      >
+        {{ t('harvester.virtualMachine.detail.console.customKeys.done') }}
+      </RcButton>
     </template>
-  </ModalWithCard>
+  </RcModal>
 </template>
 
 <style lang="scss" scoped>
-  .displayed-keys {
-    .banner {
+  .custom-keys {
+    &__intro {
       margin: 0;
     }
-  }
 
-  .displayed-banners {
-    max-height: 155px;
-    overflow: auto;
-  }
+    &__new {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px 20px 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
 
-  .actions {
-    width: 100%;
-    display: flex;
-    justify-content: flex-end;
+    &__heading {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 21px;
+
+      .custom-keys__new & {
+        margin: 0;
+      }
+    }
+
+    &__field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    &__label {
+      color: var(--input-label);
+      font-size: 14px;
+      line-height: 21px;
+    }
+
+    &__help,
+    &__error {
+      margin: 0;
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    &__help {
+      color: var(--muted);
+    }
+
+    &__error {
+      color: var(--error);
+    }
+
+    &__new-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    &__list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 8px 12px 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    &__item-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__item-keys {
+      display: flex;
+      gap: 6px;
+    }
   }
 </style>

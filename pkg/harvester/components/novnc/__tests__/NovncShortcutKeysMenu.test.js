@@ -1,6 +1,8 @@
 import { shallowMount } from '@vue/test-utils';
 import NovncShortcutKeysMenu from '../NovncShortcutKeysMenu.vue';
-import { keyLabel, normalizeShortcut, shortcutLabels } from '../shortcuts';
+import {
+  keyLabel, normalizeShortcut, readShortcuts, shortcutLabels, writeShortcuts, SHORTCUTS_PREFERENCE, SHORTCUT_NAMES_PREFERENCE
+} from '../shortcuts';
 
 const mountMenu = (props = {}) => shallowMount(NovncShortcutKeysMenu, { props });
 
@@ -55,5 +57,21 @@ describe('shortcuts', () => {
     expect(keyLabel('a')).toBe('A');
     expect(keyLabel('F2')).toBe('F2');
     expect(shortcutLabels({ keys: [{ key: 'Shift' }, { key: ' ' }] })).toStrictEqual(['Shift', 'Space']);
+  });
+
+  it('should keep the key list in the format older versions read and store names apart', async() => {
+    const keys = [{ key: 'Control', code: 'ControlLeft' }, { key: 't', code: 'KeyT' }];
+    const preference = { data: {}, save: jest.fn().mockResolvedValue() };
+
+    await writeShortcuts(preference, [{ name: 'Open terminal', keys }, { name: '', keys: [{ key: 'F2', code: 'F2' }] }]);
+
+    expect(JSON.parse(preference.data[SHORTCUTS_PREFERENCE])).toStrictEqual([keys, [{ key: 'F2', code: 'F2' }]]);
+    expect(JSON.parse(preference.data[SHORTCUT_NAMES_PREFERENCE])).toStrictEqual({ 'ControlLeft+KeyT': 'Open terminal' });
+    expect(readShortcuts(preference).map((shortcut) => shortcut.name)).toStrictEqual(['Open terminal', '']);
+  });
+
+  it('should read nothing from a preference it cannot parse', () => {
+    expect(readShortcuts({ data: { [SHORTCUTS_PREFERENCE]: '{not json' } })).toStrictEqual([]);
+    expect(readShortcuts(undefined)).toStrictEqual([]);
   });
 });

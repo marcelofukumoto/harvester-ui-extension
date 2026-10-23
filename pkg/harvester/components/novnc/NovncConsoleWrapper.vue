@@ -13,11 +13,10 @@ import NovncConnectionStatus from './NovncConnectionStatus';
 import NovncIcon from './NovncIcon';
 import NovncShortcutKeysMenu from './NovncShortcutKeysMenu';
 import NovncViewOptions, { VIEW_MODE } from './NovncViewOptions';
-import { normalizeShortcut } from './shortcuts';
+import { readShortcuts } from './shortcuts';
 import { normalizeZoom } from './ZoomableRFB';
 
 const CONSOLE_SETTINGS_KEY = 'harvester-vnc-console-settings';
-const PREFERED_SHORTCUT_KEYS = 'prefered-shortcut-keys';
 
 export const CONFIRM_ACTION = {
   CTRL_ALT_DEL: 'ctrlAltDel',
@@ -151,22 +150,8 @@ export default {
       return !this.preference?.data;
     },
 
-    savedShortcutKeys() {
-      const preferedShortcutKeys = this.preference?.data?.[PREFERED_SHORTCUT_KEYS];
-
-      if (!preferedShortcutKeys) {
-        return [];
-      }
-
-      try {
-        return JSON.parse(preferedShortcutKeys);
-      } catch (err) {
-        return [];
-      }
-    },
-
     preferredShortcutKeys() {
-      return (this.savedShortcutKeys || []).map(normalizeShortcut).filter((shortcut) => shortcut.keys.length);
+      return readShortcuts(this.preference);
     },
 
     isConnected() {
@@ -322,6 +307,7 @@ export default {
 
     hideKeysModal() {
       this.renderKeysModal = false;
+      this.focusConsoleAfterModal();
     },
 
     reconnect() {
@@ -567,7 +553,7 @@ export default {
       </RcModal>
 
       <NovncConsoleCustomKeys
-        v-if="renderKeysModal"
+        :show="renderKeysModal"
         @close="hideKeysModal"
       />
     </div>
