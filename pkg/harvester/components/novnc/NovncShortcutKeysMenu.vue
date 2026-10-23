@@ -227,21 +227,33 @@ export default {
       grid-template-columns: repeat(6, 1fr);
     }
 
+    // The chips are the design's small secondary buttons, so they take RcButton's secondary tokens
+    // (with its fallbacks) and follow the brand like every other button.
     .shortcut-menu__chip {
       justify-content: center;
       min-height: 24px;
       margin: 0;
       padding: 0 8px;
-      border: 1px solid var(--link);
+      border: 1px solid var(--secondary-border, var(--primary));
       border-radius: 4px;
-      color: var(--link);
+      background: var(--secondary, transparent);
+      color: var(--on-secondary, var(--primary));
       font-size: 12px;
       line-height: 16px;
       white-space: nowrap;
+
+      &:hover {
+        background: var(--secondary-hover, var(--accent-btn));
+      }
     }
 
     .shortcut-menu__toggle.is-on {
-      background: var(--primary-light-bg, var(--accent-btn));
+      &,
+      &:hover {
+        border-color: var(--active, var(--primary));
+        background: var(--active, var(--primary));
+        color: var(--on-active, var(--primary-text));
+      }
     }
 
     .shortcut-menu__saved {
@@ -263,8 +275,9 @@ export default {
       line-height: 18px;
     }
 
+    // The design's tertiary button.
     .shortcut-menu__manage {
-      color: var(--link);
+      color: var(--on-tertiary, var(--primary));
     }
   }
 </style>
