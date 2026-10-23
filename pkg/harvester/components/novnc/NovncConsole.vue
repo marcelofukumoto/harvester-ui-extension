@@ -408,6 +408,8 @@ export default {
 
       const settings = this.settings || {};
 
+      // View only shows the screen but sends no mouse or keyboard input.
+      rfb.viewOnly = !!settings.viewOnly;
       rfb.scaleViewport = !!settings.scaleViewport;
       rfb.resizeSession = !!settings.resizeSession;
       rfb.clipViewport = !!settings.clipViewport;

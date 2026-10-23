@@ -2,6 +2,7 @@
 import ButtonGroup from '@shell/components/ButtonGroup';
 import { RcButton } from '@components/RcButton';
 import { RcIcon } from '@components/RcIcon';
+import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import { MAXIMUM_ZOOM, MINIMUM_ZOOM, ZOOM_STEP } from './ZoomableRFB';
 
 export const VIEW_MODE = {
@@ -15,7 +16,7 @@ export default {
   name: 'NovncViewOptions',
 
   components: {
-    ButtonGroup, RcButton, RcIcon
+    ButtonGroup, RcButton, RcIcon, ToggleSwitch
   },
 
   props: {
@@ -135,6 +136,20 @@ export default {
           />
         </RcButton>
       </div>
+    </section>
+
+    <section
+      class="view-options__section"
+      data-testid="vnc-view-only"
+    >
+      <ToggleSwitch
+        :value="!!settings.viewOnly"
+        :on-label="t('harvester.virtualMachine.detail.console.viewOptions.viewOnly')"
+        @update:value="update('viewOnly', $event)"
+      />
+      <p class="view-options__help">
+        {{ t('harvester.virtualMachine.detail.console.viewOptions.viewOnlyHelp') }}
+      </p>
     </section>
 
     <hr class="view-options__divider">

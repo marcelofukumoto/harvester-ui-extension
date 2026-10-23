@@ -1028,6 +1028,7 @@ harvester:
           functionKeys: Function keys
           manage: Manage custom shortcuts…
         hint: Clicking the console captures your keyboard. To send a shortcut, use the Shortcut keys menu.
+        hintViewOnly: View only is on, so your mouse and keyboard are not sent to the VM. Turn it off in the View menu.
         connection:
           menuLabel: Connection
           description: Connected to {name}. If the screen stops updating, reconnecting usually fixes it.
@@ -1067,6 +1068,8 @@ harvester:
             label: Compression
             help: Higher compression saves bandwidth but uses more CPU.
           reset: Reset to defaults
+          viewOnly: View only
+          viewOnlyHelp: Show the screen without sending your mouse or keyboard to the VM.
         fullscreen:
           enter: Full screen
           exit: Exit full screen
@@ -1102,6 +1105,7 @@ harvester:
           connected: Connected
           disconnected: Disconnected
           notRunning: Not running
+          connectedViewOnly: Connected (view only)
           failed: Connection failed
           reconnecting: 'Reconnecting {retryTimes} of {maximumRetryTimes}'
           credentialsRequired: This console requires credentials that the dashboard cannot provide.

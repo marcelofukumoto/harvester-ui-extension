@@ -84,6 +84,15 @@ describe('component: NovncConsoleWrapper', () => {
     expect(doSoftReboot).toHaveBeenCalledTimes(1);
   });
 
+  it('should not send keys while view only is on', () => {
+    const wrapper = mountWrapper();
+
+    wrapper.vm.updateSettings({ ...wrapper.vm.settings, viewOnly: true });
+
+    expect(wrapper.vm.canSendKeys).toBe(false);
+    expect(wrapper.vm.statusLabel).toBe('%harvester.virtualMachine.detail.console.status.connectedViewOnly%');
+  });
+
   it('should not ask to send Ctrl+Alt+Del while keys cannot be sent', () => {
     const wrapper = mountWrapper();
 

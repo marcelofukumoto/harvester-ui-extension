@@ -27,6 +27,7 @@ export const CONFIRM_ACTION = {
 const DEFAULT_SETTINGS = {
   viewMode:         VIEW_MODE.SCALE,
   zoomPercent:      100,
+  viewOnly:         false,
   qualityLevel:     6,
   compressionLevel: 2,
 };
@@ -199,7 +200,7 @@ export default {
 
     // A console that just went away can still report connected for a moment.
     canSendKeys() {
-      return !this.isDown && this.isConnected;
+      return !this.isDown && this.isConnected && !this.settings.viewOnly;
     },
 
     vmName() {
@@ -254,6 +255,7 @@ export default {
 
     rfbSettings() {
       return {
+        viewOnly:         !!this.settings.viewOnly,
         scaleViewport:    this.settings.viewMode === VIEW_MODE.SCALE,
         zoomPercent:      normalizeZoom(this.settings.zoomPercent),
         resizeSession:    false,
@@ -278,6 +280,10 @@ export default {
 
       if (status === CONSOLE_STATUS.FAILED) {
         return this.t('harvester.virtualMachine.detail.console.status.disconnected');
+      }
+
+      if (status === CONSOLE_STATUS.CONNECTED && this.settings.viewOnly) {
+        return this.t('harvester.virtualMachine.detail.console.status.connectedViewOnly');
       }
 
       return this.t(`harvester.virtualMachine.detail.console.status.${ status }`);
@@ -400,6 +406,7 @@ export default {
         this.settings = {
           viewMode:         Object.values(VIEW_MODE).includes(saved?.viewMode) ? saved.viewMode : DEFAULT_SETTINGS.viewMode,
           zoomPercent:      normalizeZoom(saved?.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent),
+          viewOnly:         saved?.viewOnly === true,
           qualityLevel:     saved?.qualityLevel ?? DEFAULT_SETTINGS.qualityLevel,
           compressionLevel: saved?.compressionLevel ?? DEFAULT_SETTINGS.compressionLevel,
         };
@@ -653,7 +660,7 @@ export default {
           v-if="!isFullscreen && !isDown"
           class="console-area__hint"
         >
-          {{ t("harvester.virtualMachine.detail.console.hint") }}
+          {{ t(settings.viewOnly ? 'harvester.virtualMachine.detail.console.hintViewOnly' : 'harvester.virtualMachine.detail.console.hint') }}
         </p>
       </div>
 
