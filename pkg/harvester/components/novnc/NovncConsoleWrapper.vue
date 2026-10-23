@@ -1,7 +1,7 @@
 <script>
 import { STEVE } from '@shell/config/types';
-import ModalWithCard from '@shell/components/ModalWithCard';
 import { RcButton } from '@components/RcButton';
+import { RcModal } from '@components/RcModal';
 import { escapeHtml } from '@shell/utils/string';
 import { allHash } from '@shell/utils/promise';
 import KeyTable from '@novnc/novnc/core/input/keysym';
@@ -103,7 +103,7 @@ const F_KEYS = {
 export default {
   name:       'NovncConsoleWrapper',
   components: {
-    ModalWithCard, RcButton, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu, NovncViewOptions
+    RcButton, RcModal, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu, NovncViewOptions
   },
 
   async fetch() {
@@ -310,6 +310,12 @@ export default {
       this.$nextTick(() => this.$refs.novncConsole?.focus());
     },
 
+    // RcModal's focus trap returns focus to the opener in a timeout once the modal unmounts,
+    // so queue ours behind it.
+    focusConsoleAfterModal() {
+      this.$nextTick(() => setTimeout(() => this.$refs.novncConsole?.focus()));
+    },
+
     showKeysModal() {
       this.renderKeysModal = true;
     },
@@ -364,15 +370,17 @@ export default {
       this.confirmAction = CONFIRM_ACTION.SOFT_REBOOT;
     },
 
-    // The modal returns focus to the console canvas (return-focus-selector) once it closes.
+    // RcModal hands focus back to the toolbar button that opened it; the screen should get it.
     cancelConfirm() {
       this.confirmAction = null;
+      this.focusConsoleAfterModal();
     },
 
     runConfirmedAction() {
       const action = this.confirmAction;
 
       this.confirmAction = null;
+      this.focusConsoleAfterModal();
 
       if (action === CONFIRM_ACTION.CTRL_ALT_DEL && this.canSendKeys) {
         this.$refs.novncConsole?.ctrlAltDelete();
@@ -533,39 +541,30 @@ export default {
         </p>
       </div>
 
-      <ModalWithCard
-        v-if="confirmAction"
-        name="confirmConsoleAction"
-        :width="480"
-        return-focus-selector=".novnc-screen canvas"
-        @finish="cancelConfirm"
+      <RcModal
+        :show="!!confirmAction"
+        size="small"
+        :title="confirmAction ? t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.title`, { name: vmName }) : ''"
+        data-testid="vnc-confirm-modal"
+        @close="cancelConfirm"
       >
-        <template #title>
-          {{ t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.title`) }}
-        </template>
+        <p v-if="confirmAction">
+          {{ t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.message`) }}
+        </p>
 
-        <template #content>
-          <p>{{ t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.message`) }}</p>
+        <template #primary-action>
+          <RcButton
+            v-if="confirmAction"
+            variant="primary"
+            size="large"
+            class="confirm-modal__danger"
+            data-testid="vnc-confirm-action"
+            @click="runConfirmedAction"
+          >
+            {{ t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.button`) }}
+          </RcButton>
         </template>
-
-        <template #footer>
-          <div class="confirm-actions">
-            <button
-              class="btn role-secondary mr-10"
-              @click="cancelConfirm"
-            >
-              {{ t('generic.cancel') }}
-            </button>
-            <button
-              class="btn role-primary"
-              data-testid="vnc-confirm-action"
-              @click="runConfirmedAction"
-            >
-              {{ t(`harvester.virtualMachine.detail.console.confirm.${ confirmAction }.button`) }}
-            </button>
-          </div>
-        </template>
-      </ModalWithCard>
+      </RcModal>
 
       <NovncConsoleCustomKeys
         v-if="renderKeysModal"
@@ -658,10 +657,15 @@ export default {
     }
   }
 
-  .confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
+  // RcButton has no destructive variant; this is how the shell's own dialogs colour one.
+  .confirm-modal__danger.rc-button {
+    background-color: var(--error);
+    color: var(--error-text);
+
+    &:hover:not(:disabled) {
+      background-color: var(--error-hover-bg);
+      color: var(--error-hover-text);
+    }
   }
 </style>
 

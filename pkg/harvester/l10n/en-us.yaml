@@ -1059,13 +1059,13 @@ harvester:
         ctrlAltDel: Ctrl+Alt+Del
         confirm:
           ctrlAltDel:
-            title: Send Ctrl+Alt+Del?
-            message: Windows opens its sign-in or security screen. Most Linux systems restart the virtual machine.
-            button: Send
+            title: 'Send Ctrl+Alt+Del to {name}?'
+            message: The key combination goes straight to the guest operating system. On many systems, including most Linux distributions, this restarts the VM immediately. Unsaved work in the VM will be lost.
+            button: Send Ctrl+Alt+Del
           softReboot:
-            title: Soft reboot this virtual machine?
-            message: The guest operating system is asked to restart. Unsaved work inside the virtual machine is lost.
-            button: Soft Reboot
+            title: 'Soft reboot {name}?'
+            message: The guest operating system is asked to shut down and restart. The console disconnects while the VM restarts and reconnects when it is back.
+            button: Soft reboot
         takeOver:
           label: Take Over
           title: Take over this console?
