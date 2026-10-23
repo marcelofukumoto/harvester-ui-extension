@@ -14,7 +14,7 @@ import NovncIcon from './NovncIcon';
 import NovncShortcutKeysMenu from './NovncShortcutKeysMenu';
 import NovncStatusCard from './NovncStatusCard';
 import NovncViewOptions, { VIEW_MODE } from './NovncViewOptions';
-import { readShortcuts } from './shortcuts';
+import { baseKey, readShortcuts } from './shortcuts';
 import { normalizeZoom } from './ZoomableRFB';
 
 const CONSOLE_SETTINGS_KEY = 'harvester-vnc-console-settings';
@@ -295,7 +295,7 @@ export default {
         return;
       }
 
-      const keyList = [].concat(keys);
+      const keyList = [].concat(keys).map(baseKey);
 
       keyList.forEach((K) => {
         this.$refs.novncConsole.sendKey(KeyboardUtil.getKeysym(K), KeyboardUtil.getKeycode(K), true);

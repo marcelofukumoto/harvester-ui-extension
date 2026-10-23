@@ -66,6 +66,7 @@ describe('shortcuts', () => {
     expect(keyLabel('a')).toBe('A');
     expect(keyLabel('F2')).toBe('F2');
     expect(shortcutLabels({ keys: [{ key: 'Shift' }, { key: ' ' }] })).toStrictEqual(['Shift', 'Space']);
+    expect(shortcutLabels({ keys: [{ key: 'Alt', code: 'AltLeft' }, { key: '©', code: 'KeyG' }] })).toStrictEqual(['Alt', 'G']);
   });
 
   it('should keep the key list in the format older versions read and store names apart', async() => {

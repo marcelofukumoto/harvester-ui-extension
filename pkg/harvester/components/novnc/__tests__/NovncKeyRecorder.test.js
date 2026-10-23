@@ -54,4 +54,14 @@ describe('component: NovncKeyRecorder', () => {
     expect(tab.preventDefault).not.toHaveBeenCalled();
     expect(wrapper.emitted('update:value')).toBeUndefined();
   });
+
+  it('should record a letter by its key, not the symbol a layout made of it', () => {
+    const wrapper = shallowMount(NovncKeyRecorder);
+
+    wrapper.vm.start();
+    wrapper.vm.onKeydown(key('Alt', 'AltLeft'));
+    wrapper.vm.onKeydown(key('©', 'KeyG'));
+
+    expect(wrapper.emitted('update:value')[0][0].map((K) => K.key)).toStrictEqual(['Alt', 'g']);
+  });
 });

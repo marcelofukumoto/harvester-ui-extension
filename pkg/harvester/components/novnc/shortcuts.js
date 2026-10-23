@@ -21,6 +21,18 @@ export function keyLabel(key = '') {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
+// macOS Option and some layouts turn a letter into a symbol (Option+G gives ©). The key that was
+// pressed is still in `code`, so a letter key is named, labelled and sent after it.
+export function baseKey(K) {
+  const letter = /^Key([A-Z])$/.exec(K?.code || '');
+
+  if (letter && !/^[a-z]$/i.test(K.key || '')) {
+    return { ...K, key: letter[1].toLowerCase() };
+  }
+
+  return K;
+}
+
 export function normalizeShortcut(item) {
   if (Array.isArray(item)) {
     return { name: '', keys: item };
@@ -30,7 +42,7 @@ export function normalizeShortcut(item) {
 }
 
 export function shortcutLabels(shortcut) {
-  return (shortcut?.keys || []).map((K) => keyLabel(K.key));
+  return (shortcut?.keys || []).map((K) => keyLabel(baseKey(K).key));
 }
 
 // Two shortcuts are the same when they press the same keys, whatever they are called.
@@ -44,9 +56,9 @@ export function recordKey(event) {
     key, keyCode, code, location, charCode
   } = event;
 
-  return {
+  return baseKey({
     key, keyCode, code, location, charCode
-  };
+  });
 }
 
 function parse(value, fallback) {

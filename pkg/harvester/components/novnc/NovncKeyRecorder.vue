@@ -1,7 +1,7 @@
 <script>
 import RcStatusIndicator from '@components/Pill/RcStatusIndicator';
 import RcTag from '@components/Pill/RcTag';
-import { MODIFIER_KEYS, keyLabel, recordKey } from './shortcuts';
+import { MODIFIER_KEYS, baseKey, keyLabel, recordKey } from './shortcuts';
 
 export default {
   name: 'NovncKeyRecorder',
@@ -37,7 +37,7 @@ export default {
     },
 
     labels() {
-      return this.value.map((K) => keyLabel(K.key));
+      return this.value.map((K) => keyLabel(baseKey(K).key));
     },
 
     valueId() {
