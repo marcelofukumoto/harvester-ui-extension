@@ -10,7 +10,8 @@ import {
   LOGGING,
   STORAGE_CLASS,
   SECRET,
-  NETWORK_POLICY
+  NETWORK_POLICY,
+  BRAND
 } from '@shell/config/types';
 import { HCI, VOLUME_SNAPSHOT } from '../types';
 import {
@@ -58,7 +59,7 @@ import {
 import { ADD_ONS } from './harvester-map';
 import { registerAddonSideNav } from '../utils/dynamic-nav';
 import { setVendor } from '@shell/config/private-label';
-import { createCssVars } from '@shell/utils/color';
+import { SETTING } from '@shell/config/settings';
 
 const TEMPLATE = HCI.VM_VERSION;
 const MONITORING_GROUP = 'Monitoring & Logging::Monitoring';
@@ -101,6 +102,8 @@ export function init($plugin, store) {
   } = $plugin.DSL(store, PRODUCT_NAME);
 
   const isSingleVirtualCluster = process.env.rancherEnv === PRODUCT_NAME;
+  // The brand Harvester reported before Prime switched it to SUSE, to put back if the flavor changes.
+  let harvesterBrand;
 
   if (isSingleVirtualCluster) {
     const home = {
@@ -115,7 +118,8 @@ export function init($plugin, store) {
       (_state, getters) => JSON.stringify([
         !!getters['harvester-common/isHarvesterPrime'],
         getters['prefs/theme'] === 'dark',
-        getters['harvester-common/privateLabel']
+        getters['harvester-common/privateLabel'],
+        getters['management/byId'](MANAGEMENT.SETTING, SETTING.BRAND)?.value
       ]),
       (value) => {
         const [isHarvesterPrime, isDark, privateLabel] = JSON.parse(value);
@@ -123,23 +127,19 @@ export function init($plugin, store) {
 
         setVendor(privateLabel || '');
 
-        let primaryColorStyle = document.getElementById('harvester-prime-primary-color');
+        // Prime runs with Rancher Prime's SUSE brand, so the shell loads the whole SUSE palette (as it does
+        // inside Rancher) instead of the default one with a green primary. Standalone Harvester reports
+        // ui-brand=harvester, which has no stylesheet; the setting is only switched in this browser.
+        const brandSetting = store.getters['management/byId'](MANAGEMENT.SETTING, SETTING.BRAND);
 
-        // set harvester prime primary color style to #4dd192 (Cyan Green)
-        if (isHarvesterPrime) {
-          if (!primaryColorStyle) {
-            primaryColorStyle = document.createElement('style');
-            primaryColorStyle.id = 'harvester-prime-primary-color';
-            document.head.appendChild(primaryColorStyle);
-            primaryColorStyle.sheet.insertRule('body.theme-light, body.theme-dark {}', 0);
+        if (brandSetting) {
+          if (isHarvesterPrime && brandSetting.value !== BRAND.SUSE) {
+            harvesterBrand = brandSetting.value;
+            brandSetting.value = BRAND.SUSE;
+          } else if (!isHarvesterPrime && harvesterBrand !== undefined && brandSetting.value === BRAND.SUSE) {
+            brandSetting.value = harvesterBrand;
+            harvesterBrand = undefined;
           }
-
-          const colors = createCssVars('#4dd192', isDark ? 'dark' : 'light');
-          const rule = primaryColorStyle.sheet.cssRules[0];
-
-          Object.entries(colors).forEach(([property, color]) => rule.style.setProperty(property.trim(), color));
-        } else {
-          primaryColorStyle?.remove();
         }
 
         const primeLabelKey = privateLabel ? 'harvester.branding.primeLabel' : 'harvester.branding.primeEmptyLabel';
