@@ -87,7 +87,7 @@ describe('component: NovncConsoleWrapper', () => {
   it('should not send keys while view only is on', () => {
     const wrapper = mountWrapper();
 
-    wrapper.vm.updateSettings({ ...wrapper.vm.settings, viewOnly: true });
+    wrapper.vm.setViewOnly(true);
 
     expect(wrapper.vm.canSendKeys).toBe(false);
     expect(wrapper.vm.statusLabel).toBe('%harvester.virtualMachine.detail.console.status.connectedViewOnly%');

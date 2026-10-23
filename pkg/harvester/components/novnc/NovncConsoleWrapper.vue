@@ -419,6 +419,10 @@ export default {
       this.settings = settings;
     },
 
+    setViewOnly(viewOnly) {
+      this.settings = { ...this.settings, viewOnly };
+    },
+
     resetSettings() {
       this.settings = { ...DEFAULT_SETTINGS };
     },
@@ -510,7 +514,9 @@ export default {
           :status="connectionStatus"
           :label="statusLabel"
           :vm-name="vmName"
+          :view-only="!!settings.viewOnly"
           @reconnect="reconnect"
+          @update:view-only="setViewOnly"
         />
         <span
           class="console-toolbar__divider"
@@ -545,7 +551,9 @@ export default {
             :status="connectionStatus"
             :label="statusLabel"
             :vm-name="vmName"
+            :view-only="!!settings.viewOnly"
             @reconnect="reconnect"
+            @update:view-only="setViewOnly"
           />
         </div>
 

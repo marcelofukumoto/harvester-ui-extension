@@ -1,5 +1,7 @@
 <script>
-import { RcDropdown, RcDropdownItem, RcDropdownSeparator, RcDropdownTrigger } from '@components/RcDropdown';
+import {
+  RcDropdown, RcDropdownItem, RcDropdownItemCheckbox, RcDropdownSeparator, RcDropdownTrigger
+} from '@components/RcDropdown';
 import { RcIcon } from '@components/RcIcon';
 import RcStatusIndicator from '@components/Pill/RcStatusIndicator';
 import { CONSOLE_STATUS } from './NovncConsole';
@@ -15,7 +17,7 @@ export default {
   name: 'NovncConnectionStatus',
 
   components: {
-    RcDropdown, RcDropdownItem, RcDropdownSeparator, RcDropdownTrigger, RcIcon, RcStatusIndicator
+    RcDropdown, RcDropdownItem, RcDropdownItemCheckbox, RcDropdownSeparator, RcDropdownTrigger, RcIcon, RcStatusIndicator
   },
 
   props: {
@@ -33,9 +35,14 @@ export default {
       type:    String,
       default: '',
     },
+
+    viewOnly: {
+      type:    Boolean,
+      default: false,
+    },
   },
 
-  emits: ['reconnect'],
+  emits: ['reconnect', 'update:view-only'],
 
   computed: {
     // The console reports five states; the toolbar only tells the user whether they can type.
@@ -98,6 +105,14 @@ export default {
           {{ t('harvester.virtualMachine.detail.console.connection.description', { name: vmName }) }}
         </p>
         <rc-dropdown-separator />
+        <!-- How this session uses the connection: watch only, without sending any input. -->
+        <rc-dropdown-item-checkbox
+          data-testid="vnc-view-only"
+          :model-value="viewOnly"
+          @update:model-value="$emit('update:view-only', $event)"
+        >
+          {{ t('harvester.virtualMachine.detail.console.connection.viewOnly') }}
+        </rc-dropdown-item-checkbox>
         <rc-dropdown-item
           data-testid="vnc-connection-reconnect"
           @click="$emit('reconnect')"
