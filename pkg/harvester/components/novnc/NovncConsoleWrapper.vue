@@ -12,6 +12,7 @@ import NovncConsoleCustomKeys from './NovncConsoleCustomKeys';
 import NovncConnectionStatus from './NovncConnectionStatus';
 import NovncIcon from './NovncIcon';
 import NovncShortcutKeysMenu from './NovncShortcutKeysMenu';
+import NovncViewOptions, { VIEW_MODE } from './NovncViewOptions';
 import { normalizeShortcut } from './shortcuts';
 import { normalizeZoom } from './ZoomableRFB';
 
@@ -23,15 +24,9 @@ export const CONFIRM_ACTION = {
   SOFT_REBOOT:  'softReboot',
 };
 
-const VIEW_MODE = {
-  SCALE:  'scale',
-  NONE:   'none',
-};
-
 const DEFAULT_SETTINGS = {
-  viewMode:         VIEW_MODE.NONE,
+  viewMode:         VIEW_MODE.SCALE,
   zoomPercent:      100,
-  viewOnly:         false,
   qualityLevel:     6,
   compressionLevel: 2,
 };
@@ -108,7 +103,7 @@ const F_KEYS = {
 export default {
   name:       'NovncConsoleWrapper',
   components: {
-    ModalWithCard, RcButton, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu
+    ModalWithCard, RcButton, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu, NovncViewOptions
   },
 
   async fetch() {
@@ -179,7 +174,7 @@ export default {
     },
 
     canSendKeys() {
-      return this.isConnected && !this.settings.viewOnly;
+      return this.isConnected;
     },
 
     vmName() {
@@ -222,7 +217,6 @@ export default {
 
     rfbSettings() {
       return {
-        viewOnly:         this.settings.viewOnly,
         scaleViewport:    this.settings.viewMode === VIEW_MODE.SCALE,
         zoomPercent:      normalizeZoom(this.settings.zoomPercent),
         resizeSession:    false,
@@ -231,13 +225,6 @@ export default {
         qualityLevel:     this.settings.qualityLevel,
         compressionLevel: this.settings.compressionLevel,
       };
-    },
-
-    viewModeOptions() {
-      return Object.values(VIEW_MODE).map((value) => ({
-        value,
-        label: this.t(`harvester.virtualMachine.detail.console.settings.viewMode.${ value }`)
-      }));
     },
 
     // The pill has one label per state it shows; retries are counted on the console overlay.
@@ -250,10 +237,6 @@ export default {
 
       if (status === CONSOLE_STATUS.FAILED) {
         return this.t('harvester.virtualMachine.detail.console.status.disconnected');
-      }
-
-      if (status === CONSOLE_STATUS.CONNECTED && this.settings.viewOnly) {
-        return this.t('harvester.virtualMachine.detail.console.status.connectedViewOnly');
       }
 
       return this.t(`harvester.virtualMachine.detail.console.status.${ status }`);
@@ -346,13 +329,20 @@ export default {
         this.settings = {
           viewMode:         Object.values(VIEW_MODE).includes(saved?.viewMode) ? saved.viewMode : DEFAULT_SETTINGS.viewMode,
           zoomPercent:      normalizeZoom(saved?.zoomPercent ?? DEFAULT_SETTINGS.zoomPercent),
-          viewOnly:         saved?.viewOnly === true,
           qualityLevel:     saved?.qualityLevel ?? DEFAULT_SETTINGS.qualityLevel,
           compressionLevel: saved?.compressionLevel ?? DEFAULT_SETTINGS.compressionLevel,
         };
       } catch (err) {
         this.settings = { ...DEFAULT_SETTINGS };
       }
+    },
+
+    updateSettings(settings) {
+      this.settings = settings;
+    },
+
+    resetSettings() {
+      this.settings = { ...DEFAULT_SETTINGS };
     },
 
     onStatusChanged(info) {
@@ -503,83 +493,11 @@ export default {
             </RcButton>
 
             <template #popper>
-              <div class="console-panel">
-                <label>{{ t('harvester.virtualMachine.detail.console.settings.viewMode.label') }}</label>
-                <div
-                  v-for="option in viewModeOptions"
-                  :key="option.value"
-                >
-                  <label class="console-panel__option">
-                    <input
-                      v-model="settings.viewMode"
-                      type="radio"
-                      :value="option.value"
-                    >
-                    {{ option.label }}
-                  </label>
-                </div>
-
-                <label
-                  for="vnc-zoom"
-                  class="console-panel__zoom-label"
-                >
-                  <span>{{ t('harvester.virtualMachine.detail.console.settings.zoom') }}</span>
-                  <span>{{ settings.zoomPercent }}%</span>
-                </label>
-                <input
-                  id="vnc-zoom"
-                  v-model.number="settings.zoomPercent"
-                  class="console-panel__zoom"
-                  type="range"
-                  min="50"
-                  max="200"
-                  step="10"
-                  :disabled="settings.viewMode === 'scale'"
-                  :aria-valuetext="`${ settings.zoomPercent }%`"
-                >
-
-                <label class="console-panel__option">
-                  <input
-                    v-model="settings.viewOnly"
-                    type="checkbox"
-                  >
-                  {{ t('harvester.virtualMachine.detail.console.settings.viewOnly') }}
-                </label>
-
-                <label
-                  for="vnc-quality"
-                  class="console-panel__zoom-label"
-                >
-                  <span>{{ t('harvester.virtualMachine.detail.console.settings.quality') }}</span>
-                  <span>{{ settings.qualityLevel }}</span>
-                </label>
-                <input
-                  id="vnc-quality"
-                  v-model.number="settings.qualityLevel"
-                  class="console-panel__zoom"
-                  type="range"
-                  min="0"
-                  max="9"
-                  step="1"
-                >
-
-                <label
-                  for="vnc-compression"
-                  class="console-panel__zoom-label"
-                >
-                  <span>{{ t('harvester.virtualMachine.detail.console.settings.compression') }}</span>
-                  <span>{{ settings.compressionLevel }}</span>
-                </label>
-                <input
-                  id="vnc-compression"
-                  v-model.number="settings.compressionLevel"
-                  class="console-panel__zoom"
-                  type="range"
-                  min="0"
-                  max="9"
-                  step="1"
-                >
-              </div>
+              <NovncViewOptions
+                :settings="settings"
+                @update="updateSettings"
+                @reset="resetSettings"
+              />
             </template>
           </v-dropdown>
 
@@ -744,32 +662,6 @@ export default {
     display: flex;
     justify-content: flex-end;
     width: 100%;
-  }
-
-  .console-panel {
-    display: flex;
-    flex-direction: column;
-    width: 260px;
-    padding: 4px;
-
-    &__zoom-label {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 8px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    &__zoom {
-      width: 100%;
-      margin: 4px 0 8px;
-    }
-
-    &__option {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin: 2px 0;
-    }
   }
 </style>
 

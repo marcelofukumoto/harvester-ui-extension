@@ -1036,16 +1036,23 @@ harvester:
           tips: Press the record button to capture your keyboard inputs.
           send: Send
           preferredKeys: Preferred Custom Shortcut Keys
-        settings:
-          label: Settings
-          viewMode:
-            label: Display
-            scale: Scale the display to fit the window
-            none: Manual zoom
-          zoom: Zoom
-          viewOnly: View only
-          quality: JPEG quality
-          compression: Compression level
+        viewOptions:
+          scaling: Scaling
+          automatic: Automatic
+          manual: Manual
+          automaticHelp: The screen scales to fit the window.
+          manualHelp: You set the zoom. Scroll to see parts of the screen that do not fit.
+          zoom: Zoom level
+          zoomIn: Zoom in
+          zoomOut: Zoom out
+          levelOf: '{value} of {max}'
+          qualityLevel:
+            label: JPEG quality
+            help: Higher quality looks sharper and uses more bandwidth.
+          compressionLevel:
+            label: Compression
+            help: Higher compression saves bandwidth but uses more CPU.
+          reset: Reset to defaults
         fullscreen:
           enter: Full screen
           exit: Exit full screen
@@ -1075,7 +1082,6 @@ harvester:
         status:
           connecting: Connecting…
           connected: Connected
-          connectedViewOnly: Connected (view only)
           disconnected: Disconnected
           failed: Connection failed
           reconnecting: 'Reconnecting {retryTimes} of {maximumRetryTimes}'

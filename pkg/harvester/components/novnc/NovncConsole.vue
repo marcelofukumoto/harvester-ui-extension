@@ -489,8 +489,6 @@ export default {
     position: relative;
     box-sizing: border-box;
     height: 100%;
-    // Room for the 2px focus ring, which is drawn outside the canvas.
-    padding: 2px;
     overflow: hidden;
   }
 
