@@ -8,6 +8,7 @@ export const CONNECTION_STATE = {
   CONNECTING:   'connecting',
   CONNECTED:    'connected',
   DISCONNECTED: 'disconnected',
+  NOT_RUNNING:  'notRunning',
 };
 
 export default {
@@ -39,6 +40,10 @@ export default {
   computed: {
     // The console reports five states; the toolbar only tells the user whether they can type.
     state() {
+      if (this.status === CONNECTION_STATE.NOT_RUNNING) {
+        return CONNECTION_STATE.NOT_RUNNING;
+      }
+
       if (this.status === CONSOLE_STATUS.CONNECTED) {
         return CONNECTION_STATE.CONNECTED;
       }
@@ -54,11 +59,14 @@ export default {
 </script>
 
 <template>
-  <div
-    class="connection-status"
-    role="status"
-    aria-live="polite"
-  >
+  <div class="connection-status">
+    <!-- Only the label is announced, not the menu that opens next to it. -->
+    <span
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    >{{ label }}</span>
+
     <rc-dropdown
       v-if="state === 'connected'"
       :aria-label="t('harvester.virtualMachine.detail.console.connection.menuLabel')"
@@ -104,6 +112,18 @@ export default {
         </rc-dropdown-item>
       </template>
     </rc-dropdown>
+
+    <span
+      v-else-if="state === 'notRunning'"
+      class="connection-status__pill"
+      data-testid="vnc-connection-status"
+    >
+      <rc-status-indicator
+        shape="disc"
+        status="unknown"
+      />
+      {{ label }}
+    </span>
 
     <span
       v-else-if="state === 'connecting'"

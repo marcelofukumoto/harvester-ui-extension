@@ -69,6 +69,13 @@ export default {
   },
 
   methods: {
+    // Held modifiers belong to this visit of the menu; closing it without a key lets them go.
+    onOpen(open) {
+      if (!open) {
+        this.held = [];
+      }
+    },
+
     toggleModifier(key, on) {
       this.held = on ? [...this.held, key] : this.held.filter((K) => K !== key);
     },
@@ -88,6 +95,7 @@ export default {
   <rc-dropdown
     :aria-label="t('harvester.virtualMachine.detail.console.shortcutKeys')"
     placement="bottom-start"
+    @update:open="onOpen"
   >
     <rc-dropdown-trigger
       variant="tertiary"

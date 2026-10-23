@@ -39,6 +39,19 @@ export default {
     labels() {
       return this.value.map((K) => keyLabel(K.key));
     },
+
+    valueId() {
+      return `vnc-key-recorder-value-${ this.$.uid }`;
+    },
+
+    // Read out with the field's label, so screen readers hear what is recorded.
+    announcement() {
+      if (this.state === 'recording') {
+        return this.t('harvester.virtualMachine.detail.console.customKeys.recorder.recordingStatus');
+      }
+
+      return this.labels.join('+');
+    },
   },
 
   methods: {
@@ -59,6 +72,18 @@ export default {
           event.preventDefault();
           this.start();
         }
+
+        return;
+      }
+
+      // Esc or Tab on their own leave the field, so it never traps the keyboard; with a modifier
+      // they are part of the combination (Ctrl+Shift+Esc).
+      if (!this.pending.length && (event.key === 'Escape' || event.key === 'Tab')) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        this.stop();
 
         return;
       }
@@ -91,13 +116,19 @@ export default {
     :class="`key-recorder--${ state }`"
     role="button"
     tabindex="0"
-    :aria-labelledby="ariaLabelledby"
+    :aria-labelledby="ariaLabelledby ? `${ ariaLabelledby } ${ valueId }` : valueId"
     :aria-pressed="recording"
     data-testid="vnc-key-recorder"
     @click="start"
     @keydown="onKeydown"
     @blur="stop"
   >
+    <span
+      :id="valueId"
+      class="sr-only"
+      aria-live="polite"
+    >{{ announcement }}</span>
+
     <template v-if="state === 'recording'">
       <span class="key-recorder__hint">{{ t('harvester.virtualMachine.detail.console.customKeys.recorder.recording') }}</span>
       <span class="key-recorder__status">

@@ -9,9 +9,10 @@ import * as KeyboardUtil from '@novnc/novnc/core/input/util';
 import { HCI } from '../../types';
 import NovncConsole, { CONSOLE_STATUS } from './NovncConsole';
 import NovncConsoleCustomKeys from './NovncConsoleCustomKeys';
-import NovncConnectionStatus from './NovncConnectionStatus';
+import NovncConnectionStatus, { CONNECTION_STATE } from './NovncConnectionStatus';
 import NovncIcon from './NovncIcon';
 import NovncShortcutKeysMenu from './NovncShortcutKeysMenu';
+import NovncStatusCard from './NovncStatusCard';
 import NovncViewOptions, { VIEW_MODE } from './NovncViewOptions';
 import { readShortcuts } from './shortcuts';
 import { normalizeZoom } from './ZoomableRFB';
@@ -102,15 +103,23 @@ const F_KEYS = {
 export default {
   name:       'NovncConsoleWrapper',
   components: {
-    RcButton, RcModal, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu, NovncViewOptions
+    RcButton, RcModal, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu, NovncStatusCard, NovncViewOptions
   },
 
+  // A VM that is not running has no instance, so find it by the uid in the route instead.
   async fetch() {
-    const _hash = { vmResource: this.$store.dispatch('harvester/find', { type: HCI.VM, id: this.value.id }) };
+    if (this.value?.id) {
+      const hash = await allHash({ vmResource: this.$store.dispatch('harvester/find', { type: HCI.VM, id: this.value.id }) });
 
-    const hash = await allHash(_hash);
+      this.vmResource = hash.vmResource;
 
-    this.vmResource = hash.vmResource;
+      return;
+    }
+
+    const uid = this.$route?.params?.uid;
+    const vms = uid ? await this.$store.dispatch('harvester/findAll', { type: HCI.VM }) : [];
+
+    this.vmResource = (vms || []).find((vm) => vm.metadata?.uid === uid) || {};
   },
 
   props: {
@@ -163,11 +172,16 @@ export default {
     },
 
     vmName() {
-      return this.value?.metadata?.name || '';
+      return this.value?.metadata?.name || this.vmResource?.metadata?.name || '';
     },
 
     vmNamespace() {
-      return this.value?.metadata?.namespace || '';
+      return this.value?.metadata?.namespace || this.vmResource?.metadata?.namespace || '';
+    },
+
+    // Without an instance there is no console to connect to, so the toolbar says so.
+    connectionStatus() {
+      return this.isDown ? CONNECTION_STATE.NOT_RUNNING : this.consoleStatus.status;
     },
 
     isDown() {
@@ -214,6 +228,10 @@ export default {
 
     // The pill has one label per state it shows; retries are counted on the console overlay.
     statusLabel() {
+      if (this.isDown) {
+        return this.t('harvester.virtualMachine.detail.console.status.notRunning');
+      }
+
       const { status } = this.consoleStatus;
 
       if (status === CONSOLE_STATUS.RECONNECTING) {
@@ -252,7 +270,7 @@ export default {
     },
 
     close() {
-      this.$refs.novncConsole.disconnect();
+      this.$refs.novncConsole?.disconnect();
     },
 
     // Press the keys in order, then release them in reverse, e.g. Ctrl+Alt+F2.
@@ -311,7 +329,7 @@ export default {
     },
 
     reconnect() {
-      this.$refs.novncConsole.reconnect();
+      this.$refs.novncConsole?.reconnect();
     },
 
     loadSettings() {
@@ -381,14 +399,15 @@ export default {
           await document.exitFullscreen();
         } else {
           await this.$refs.consoleContainer.requestFullscreen();
-          // Keyboard lock lets shortcuts such as Ctrl+W and F11 reach the guest.
-          await navigator.keyboard?.lock?.(['KeyW', 'F11']);
+          // Keyboard lock (Chromium) lets browser shortcuts such as Ctrl+W, Ctrl+T, Ctrl+N and F11
+          // reach the guest; outside full screen the browser keeps them.
+          await navigator.keyboard?.lock?.(['KeyW', 'KeyT', 'KeyN', 'F11']);
         }
 
         this.focusConsole();
       } catch (err) {
         this.$store.dispatch('growl/fromError', {
-          title: this.t('generic.notification.title.error', { name: escapeHtml(this.value.metadata.name) }),
+          title: this.t('generic.notification.title.error', { name: escapeHtml(this.vmName) }),
           err,
         }, { root: true });
       }
@@ -420,7 +439,7 @@ export default {
       >
         <span class="fullscreen-bar__name">{{ vmName }}</span>
         <NovncConnectionStatus
-          :status="consoleStatus.status"
+          :status="connectionStatus"
           :label="statusLabel"
           :vm-name="vmName"
           @reconnect="reconnect"
@@ -455,7 +474,7 @@ export default {
           </div>
 
           <NovncConnectionStatus
-            :status="consoleStatus.status"
+            :status="connectionStatus"
             :label="statusLabel"
             :vm-name="vmName"
             @reconnect="reconnect"
@@ -554,11 +573,19 @@ export default {
           @status-changed="onStatusChanged"
           @capabilities="onCapabilities"
         />
-        <p v-if="isDown">
-          {{ t("harvester.virtualMachine.detail.console.down") }}
-        </p>
+        <div
+          v-if="isDown"
+          class="console-area__down"
+          data-testid="vnc-not-running"
+        >
+          <NovncStatusCard
+            icon="power"
+            :title="t('harvester.virtualMachine.detail.console.notRunning.title')"
+            :detail="t('harvester.virtualMachine.detail.console.notRunning.detail')"
+          />
+        </div>
         <p
-          v-if="!isFullscreen"
+          v-if="!isFullscreen && !isDown"
           class="console-area__hint"
         >
           {{ t("harvester.virtualMachine.detail.console.hint") }}
@@ -603,6 +630,7 @@ export default {
     height: 100vh;
     height: 100dvh;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     background: var(--body-bg);
 
@@ -642,10 +670,12 @@ export default {
     }
   }
 
+  // Narrow windows wrap the toolbar instead of pushing the screen out of view.
   .console-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 8px 12px;
     padding: 10px 16px;
     background: var(--nav-bg);
 
@@ -707,6 +737,15 @@ export default {
       min-height: 0;
     }
 
+    &__down {
+      display: flex;
+      flex: 1 1 auto;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      background: #000;
+    }
+
     &__hint {
       margin: 0;
       color: var(--muted);
@@ -718,8 +757,12 @@ export default {
 
   // RcButton has no destructive variant; this is how the shell's own dialogs colour one.
   .confirm-modal__danger.rc-button {
-    background-color: var(--error);
-    color: var(--error-text);
+    &,
+    &:focus,
+    &.focused {
+      background-color: var(--error);
+      color: var(--error-text);
+    }
 
     &:hover:not(:disabled) {
       background-color: var(--error-hover-bg);

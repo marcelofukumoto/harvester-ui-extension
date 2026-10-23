@@ -183,7 +183,7 @@ export default {
           </span>
           <RcButton
             variant="tertiary"
-            :aria-label="t('harvester.virtualMachine.detail.console.customKeys.delete', { name: shortcut.name || shortcut.labels.join('+') })"
+            :aria-label="t('harvester.virtualMachine.detail.console.customKeys.delete', { name: shortcut.name || shortcut.labels.join('+') }, true)"
             :disabled="saving"
             @click="remove(index)"
           >

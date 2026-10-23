@@ -28,6 +28,15 @@ describe('component: NovncShortcutKeysMenu', () => {
     expect(wrapper.vm.held).toStrictEqual([]);
   });
 
+  it('should let held modifiers go when the menu closes without a key', () => {
+    const wrapper = mountMenu();
+
+    wrapper.vm.toggleModifier('ControlLeft', true);
+    wrapper.vm.onOpen(false);
+
+    expect(wrapper.vm.held).toStrictEqual([]);
+  });
+
   it('should name saved shortcuts by their keys when they have no name', () => {
     const wrapper = mountMenu({
       shortcuts: [
@@ -68,6 +77,15 @@ describe('shortcuts', () => {
     expect(JSON.parse(preference.data[SHORTCUTS_PREFERENCE])).toStrictEqual([keys, [{ key: 'F2', code: 'F2' }]]);
     expect(JSON.parse(preference.data[SHORTCUT_NAMES_PREFERENCE])).toStrictEqual({ 'ControlLeft+KeyT': 'Open terminal' });
     expect(readShortcuts(preference).map((shortcut) => shortcut.name)).toStrictEqual(['Open terminal', '']);
+  });
+
+  it('should put the preference back when the save fails', async() => {
+    const saved = JSON.stringify([[{ key: 'F2', code: 'F2' }]]);
+    const preference = { data: { [SHORTCUTS_PREFERENCE]: saved }, save: jest.fn().mockRejectedValue(new Error('403')) };
+
+    await expect(writeShortcuts(preference, [])).rejects.toThrow('403');
+
+    expect(preference.data).toStrictEqual({ [SHORTCUTS_PREFERENCE]: saved });
   });
 
   it('should read nothing from a preference it cannot parse', () => {

@@ -39,4 +39,19 @@ describe('component: NovncKeyRecorder', () => {
     expect(wrapper.emitted('update:value')).toBeUndefined();
     expect(wrapper.vm.state).toBe('empty');
   });
+
+  it('should stop recording on Esc or Tab alone, without recording them', () => {
+    const wrapper = shallowMount(NovncKeyRecorder);
+    const tab = key('Tab', 'Tab');
+
+    wrapper.vm.start();
+    wrapper.vm.onKeydown(key('Escape', 'Escape'));
+    expect(wrapper.vm.recording).toBe(false);
+
+    wrapper.vm.start();
+    wrapper.vm.onKeydown(tab);
+    expect(wrapper.vm.recording).toBe(false);
+    expect(tab.preventDefault).not.toHaveBeenCalled();
+    expect(wrapper.emitted('update:value')).toBeUndefined();
+  });
 });

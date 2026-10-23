@@ -76,8 +76,24 @@ export function writeShortcuts(preference, shortcuts) {
     }
   });
 
+  const previous = {
+    [SHORTCUTS_PREFERENCE]:      preference.data[SHORTCUTS_PREFERENCE],
+    [SHORTCUT_NAMES_PREFERENCE]: preference.data[SHORTCUT_NAMES_PREFERENCE],
+  };
+
   preference.data[SHORTCUTS_PREFERENCE] = JSON.stringify(shortcuts.map((shortcut) => shortcut.keys));
   preference.data[SHORTCUT_NAMES_PREFERENCE] = JSON.stringify(names);
 
-  return preference.save();
+  // The lists read straight from the preference, so a failed save must not leave the change showing.
+  return preference.save().catch((err) => {
+    Object.entries(previous).forEach(([key, value]) => {
+      if (value === undefined) {
+        delete preference.data[key];
+      } else {
+        preference.data[key] = value;
+      }
+    });
+
+    throw err;
+  });
 }

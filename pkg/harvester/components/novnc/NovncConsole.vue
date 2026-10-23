@@ -2,7 +2,7 @@
 import { RcButton } from '@components/RcButton';
 import { RcIcon } from '@components/RcIcon';
 import { RcModal } from '@components/RcModal';
-import NovncIcon from './NovncIcon';
+import NovncStatusCard from './NovncStatusCard';
 import ZoomableRFB from './ZoomableRFB';
 
 export const CONSOLE_STATUS = {
@@ -38,7 +38,7 @@ export default {
   name: 'NovncConsole',
 
   components: {
-    RcButton, RcIcon, RcModal, NovncIcon
+    RcButton, RcIcon, RcModal, NovncStatusCard
   },
 
   props: {
@@ -103,8 +103,9 @@ export default {
       return this.status === CONSOLE_STATUS.FAILED || (this.status === CONSOLE_STATUS.DISCONNECTED && this.failure === CONSOLE_FAILURE.DROPPED);
     },
 
+    // Only another session holding the console is something taking over can fix.
     canTakeOver() {
-      return this.preserveSession && !this.isClosed;
+      return this.preserveSession && !this.isClosed && this.failure === CONSOLE_FAILURE.IN_USE;
     },
 
     failureTitle() {
@@ -386,7 +387,6 @@ export default {
 
       const settings = this.settings || {};
 
-      rfb.viewOnly = !!settings.viewOnly;
       rfb.scaleViewport = !!settings.scaleViewport;
       rfb.resizeSession = !!settings.resizeSession;
       rfb.clipViewport = !!settings.clipViewport;
@@ -422,43 +422,27 @@ export default {
       class="novnc-overlay"
       data-testid="vnc-overlay"
     >
-      <div
+      <NovncStatusCard
         v-if="showError"
-        class="novnc-overlay__card"
+        :title="failureTitle"
+        :detail="statusDetail"
       >
-        <span
-          class="novnc-overlay__badge"
-          aria-hidden="true"
+        <RcButton
+          variant="primary"
+          data-testid="vnc-overlay-reconnect"
+          @click="reconnect"
         >
-          <NovncIcon type="wifi-off" />
-        </span>
-        <h3 class="novnc-overlay__title">
-          {{ failureTitle }}
-        </h3>
-        <p
-          v-if="statusDetail"
-          class="novnc-overlay__detail"
+          {{ t('harvester.action.reconnect') }}
+        </RcButton>
+        <RcButton
+          v-if="canTakeOver"
+          variant="secondary"
+          data-testid="vnc-take-over"
+          @click="takeOver"
         >
-          {{ statusDetail }}
-        </p>
-        <div class="novnc-overlay__actions">
-          <RcButton
-            variant="primary"
-            data-testid="vnc-overlay-reconnect"
-            @click="reconnect"
-          >
-            {{ t('harvester.action.reconnect') }}
-          </RcButton>
-          <RcButton
-            v-if="canTakeOver"
-            variant="secondary"
-            data-testid="vnc-take-over"
-            @click="takeOver"
-          >
-            {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
-          </RcButton>
-        </div>
-      </div>
+          {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
+        </RcButton>
+      </NovncStatusCard>
 
       <div
         v-else
@@ -481,6 +465,14 @@ export default {
             {{ statusDetail }}
           </template>
         </p>
+        <RcButton
+          v-if="retryTimes > 0"
+          variant="secondary"
+          data-testid="vnc-reconnect-now"
+          @click="reconnect"
+        >
+          {{ t('harvester.virtualMachine.detail.console.overlay.reconnectNow') }}
+        </RcButton>
       </div>
     </div>
 
@@ -508,18 +500,20 @@ export default {
 </template>
 
 <style lang="scss" scoped>
+  // The screen is black like a monitor, so the overlays read the same in every theme.
   .novnc-console {
     position: relative;
     box-sizing: border-box;
     height: 100%;
     overflow: hidden;
+    background: #000;
   }
 
   .novnc-screen {
     height: 100%;
   }
 
-  // The overlay always sits on the black framebuffer, whatever the theme, so its text is light.
+  // The overlay sits on the black screen, so its text is light whatever the theme.
   .novnc-overlay {
     position: absolute;
     top: 0;
@@ -535,49 +529,11 @@ export default {
     color: #fff;
     text-align: center;
 
-    &__card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      max-width: 480px;
-      padding: 32px;
-    }
-
-    &__badge {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--body-bg);
-      color: var(--body-text);
-
-      .novnc-icon {
-        width: 24px;
-        height: 24px;
-      }
-    }
-
-    &__title {
-      margin: 0;
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
-    }
-
     &__detail {
       margin: 0;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.8);
       font-size: 13px;
       line-height: 16px;
-    }
-
-    &__actions {
-      display: flex;
-      gap: 12px;
-      padding-top: 8px;
     }
 
     &__connecting {
