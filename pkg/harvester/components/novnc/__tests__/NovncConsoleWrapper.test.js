@@ -84,6 +84,22 @@ describe('component: NovncConsoleWrapper', () => {
     expect(doSoftReboot).toHaveBeenCalledTimes(1);
   });
 
+  it('should keep the shortcut menu open to use while keys cannot be sent, and say why', () => {
+    const wrapper = mountWrapper();
+
+    wrapper.vm.onStatusChanged({ status: 'reconnecting' });
+
+    expect(wrapper.vm.shortcutMenuProps.canSend).toBe(false);
+    expect(wrapper.vm.sendBlockedReason).toBe('%harvester.virtualMachine.detail.console.shortcutMenu.blockedDisconnected%');
+    // Without a user preference there is nothing to manage either, so only then is it disabled.
+    expect(wrapper.vm.shortcutMenuProps.disabled).toBe(true);
+
+    wrapper.vm.onStatusChanged({ status: 'connected' });
+    wrapper.vm.setViewOnly(true);
+
+    expect(wrapper.vm.sendBlockedReason).toBe('%harvester.virtualMachine.detail.console.shortcutMenu.blockedViewOnly%');
+  });
+
   it('should not send keys while view only is on', () => {
     const wrapper = mountWrapper();
 

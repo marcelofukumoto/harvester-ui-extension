@@ -4,7 +4,8 @@ export const MINIMUM_ZOOM = 50;
 export const MAXIMUM_ZOOM = 200;
 export const ZOOM_STEP = 10;
 
-const FOCUS_RING_WIDTH = 2;
+// The focus ring and the gap before it, drawn outside the canvas.
+const FOCUS_RING_WIDTH = 4;
 
 export function normalizeZoom(value) {
   const percent = Number(value);

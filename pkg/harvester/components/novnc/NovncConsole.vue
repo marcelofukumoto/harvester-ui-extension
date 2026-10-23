@@ -217,12 +217,7 @@ export default {
       this.connect();
     },
 
-    // The modal is teleported out of the console, so it would be hidden behind full screen.
     takeOver() {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-
       this.showTakeOverModal = true;
     },
 
@@ -594,12 +589,13 @@ export default {
 
 <style lang="scss">
   // noVNC sets an inline `outline: none` on its canvas, so frame the screen with a ring instead:
-  // a thin border at rest and a 2px primary one while it holds the keyboard.
+  // a thin border at rest and, while it holds the keyboard, a 2px ring set 2px off the screen so it
+  // never blends into a dark framebuffer edge (the SUSE light focus colour is a very dark green).
   .novnc-screen canvas {
     box-shadow: 0 0 0 1px var(--border);
   }
 
   .novnc-screen.is-focused canvas {
-    box-shadow: 0 0 0 2px var(--primary-keyboard-focus);
+    box-shadow: 0 0 0 2px var(--body-bg), 0 0 0 4px var(--primary-keyboard-focus);
   }
 </style>

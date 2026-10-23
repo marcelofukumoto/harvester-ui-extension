@@ -40,6 +40,18 @@ export default {
       default: () => [],
     },
 
+    // Keys only go out over a connected, interactive console; the menu still opens to manage shortcuts.
+    canSend: {
+      type:    Boolean,
+      default: true,
+    },
+
+    // Why keys cannot be sent right now, shown at the top of the menu.
+    blockedReason: {
+      type:    String,
+      default: '',
+    },
+
     // Custom shortcuts are stored in the user preference, which standalone setups may not have.
     canManage: {
       type:    Boolean,
@@ -160,11 +172,19 @@ export default {
 
     <template #dropdownCollection>
       <div class="shortcut-menu">
+        <p
+          v-if="!canSend && blockedReason"
+          class="shortcut-menu__blocked"
+          data-testid="vnc-shortcut-blocked"
+        >
+          {{ blockedReason }}
+        </p>
         <template v-if="canManage && items.length">
           <rc-dropdown-group :label="t('harvester.virtualMachine.detail.console.shortcutMenu.yourShortcuts')">
             <rc-dropdown-item
               v-for="item in items"
               :key="item.index"
+              :disabled="!canSend"
               class="shortcut-menu__saved"
               data-testid="vnc-saved-shortcut"
               :title="item.name"
@@ -184,6 +204,7 @@ export default {
             <rc-dropdown-item-checkbox
               v-for="modifier in modifiers"
               :key="modifier.key"
+              :disabled="!canSend"
               indicator="checkmark"
               class="shortcut-menu__chip shortcut-menu__toggle"
               :class="{ 'is-on': held.includes(modifier.key) }"
@@ -208,6 +229,7 @@ export default {
             <rc-dropdown-item
               v-for="option in keyOptions"
               :key="option.key"
+              :disabled="!canSend"
               class="shortcut-menu__chip"
               :data-testid="`vnc-key-${ option.key }`"
               @click="sendKey(option.key)"
@@ -225,6 +247,7 @@ export default {
             <rc-dropdown-item
               v-for="key in functionKeys"
               :key="key"
+              :disabled="!canSend"
               class="shortcut-menu__chip"
               :data-testid="`vnc-key-${ key }`"
               @click="sendKey(key)"
@@ -292,6 +315,25 @@ export default {
       &:hover {
         background: var(--secondary-hover, var(--accent-btn));
       }
+    }
+
+    .shortcut-menu__chip[disabled],
+    .shortcut-menu__saved[disabled] .shortcut-menu__chip {
+      &,
+      &:hover {
+        border-color: var(--disabled-bg, var(--border));
+        background: transparent;
+        color: var(--disabled-text);
+        cursor: not-allowed;
+      }
+    }
+
+    &__blocked {
+      margin: 0;
+      padding: 4px 16px 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
     }
 
     .shortcut-menu__toggle.is-on {

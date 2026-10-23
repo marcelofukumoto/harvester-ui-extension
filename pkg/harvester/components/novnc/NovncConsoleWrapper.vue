@@ -203,6 +203,25 @@ export default {
       return !this.isDown && this.isConnected && !this.settings.viewOnly;
     },
 
+    // Shared by the toolbar and the full screen bar.
+    shortcutMenuProps() {
+      return {
+        canSend:       this.canSendKeys,
+        blockedReason: this.sendBlockedReason,
+        canManage:     !this.hideCustomKeysBar,
+        disabled:      !this.canSendKeys && this.hideCustomKeysBar,
+        shortcuts:     this.preferredShortcutKeys,
+      };
+    },
+
+    sendBlockedReason() {
+      if (this.canSendKeys) {
+        return '';
+      }
+
+      return this.t(`harvester.virtualMachine.detail.console.shortcutMenu.${ this.settings.viewOnly && this.isConnected ? 'blockedViewOnly' : 'blockedDisconnected' }`);
+    },
+
     vmName() {
       return this.value?.metadata?.name || this.vmResource?.metadata?.name || '';
     },
@@ -470,7 +489,8 @@ export default {
         if (document.fullscreenElement) {
           await document.exitFullscreen();
         } else {
-          await this.$refs.consoleContainer.requestFullscreen();
+          // The whole page, not just the console: menus and modals render outside it.
+          await document.documentElement.requestFullscreen();
           // Keyboard lock (Chromium) lets browser shortcuts such as Ctrl+W, Ctrl+T, Ctrl+N and F11
           // reach the guest; outside full screen the browser keeps them.
           await navigator.keyboard?.lock?.(['KeyW', 'KeyT', 'KeyN', 'F11']);
@@ -522,6 +542,28 @@ export default {
           class="console-toolbar__divider"
           aria-hidden="true"
         />
+        <NovncShortcutKeysMenu
+          v-bind="shortcutMenuProps"
+          @send-keys="sendKeys"
+          @send-shortcut="sendCustomKeys"
+          @manage="showKeysModal"
+          @ctrl-alt-del="ctrlAltDelete"
+        />
+        <RcButton
+          variant="tertiary"
+          data-testid="vnc-fullscreen-ctrl-alt-del"
+          :disabled="!canSendKeys"
+          @click="ctrlAltDelete"
+        >
+          <template #before>
+            <NovncIcon type="power" />
+          </template>
+          {{ t("harvester.virtualMachine.detail.console.ctrlAltDel") }}
+        </RcButton>
+        <span
+          class="console-toolbar__divider"
+          aria-hidden="true"
+        />
         <RcButton
           variant="tertiary"
           data-testid="vnc-exit-fullscreen"
@@ -559,9 +601,7 @@ export default {
 
         <div class="console-toolbar__group">
           <NovncShortcutKeysMenu
-            :disabled="!canSendKeys"
-            :shortcuts="preferredShortcutKeys"
-            :can-manage="!hideCustomKeysBar"
+            v-bind="shortcutMenuProps"
             @send-keys="sendKeys"
             @send-shortcut="sendCustomKeys"
             @manage="showKeysModal"
@@ -592,7 +632,6 @@ export default {
             variant="tertiary"
             left-icon="refresh-alt"
             data-testid="vnc-soft-reboot"
-            :disabled="!isConnected"
             @click="softReboot"
           >
             {{ t("harvester.virtualMachine.detail.console.softReboot") }}
