@@ -72,8 +72,8 @@ export default {
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: var(--body-bg);
-      color: var(--body-text);
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.8);
 
       .novnc-icon {
         width: 24px;

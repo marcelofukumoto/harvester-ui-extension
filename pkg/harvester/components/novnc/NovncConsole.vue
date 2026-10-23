@@ -410,7 +410,10 @@ export default {
 </script>
 
 <template>
-  <div class="novnc-console">
+  <div
+    class="novnc-console"
+    :class="{ 'is-live': status === 'connected' }"
+  >
     <div
       ref="view"
       class="novnc-screen"
@@ -450,8 +453,8 @@ export default {
       >
         <RcIcon
           type="spinner"
-          size="xlarge"
-          class="icon-spin"
+          size="inherit"
+          class="icon-spin novnc-overlay__spinner"
         />
         <p class="novnc-overlay__connecting-label">
           {{ t('harvester.virtualMachine.detail.console.overlay.connecting', { name: vmName }) }}
@@ -500,13 +503,18 @@ export default {
 </template>
 
 <style lang="scss" scoped>
-  // The screen is black like a monitor, so the overlays read the same in every theme.
+  // Without a live picture the screen is black like a monitor, so the overlays read the same in
+  // every theme; once connected the framebuffer is the screen and the page shows around it.
   .novnc-console {
     position: relative;
     box-sizing: border-box;
     height: 100%;
     overflow: hidden;
     background: #000;
+
+    &.is-live {
+      background: transparent;
+    }
   }
 
   .novnc-screen {
@@ -543,6 +551,11 @@ export default {
       gap: 16px;
       max-width: 480px;
       padding: 0 20px;
+    }
+
+    // RcIcon has no 20px size, the one the design uses here.
+    &__spinner {
+      font-size: 20px;
     }
 
     &__connecting-label {
