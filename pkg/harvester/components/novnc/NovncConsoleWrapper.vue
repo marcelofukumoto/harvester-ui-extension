@@ -516,6 +516,7 @@ export default {
           :settings="rfbSettings"
           :preserve-session="preserveSession"
           :vm-running="vmRunning"
+          :vm-name="vmName"
           @status-changed="onStatusChanged"
           @capabilities="onCapabilities"
         />

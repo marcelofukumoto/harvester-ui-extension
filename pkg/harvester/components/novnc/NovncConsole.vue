@@ -1,5 +1,8 @@
 <script>
-import ModalWithCard from '@shell/components/ModalWithCard';
+import { RcButton } from '@components/RcButton';
+import { RcIcon } from '@components/RcIcon';
+import { RcModal } from '@components/RcModal';
+import NovncIcon from './NovncIcon';
 import ZoomableRFB from './ZoomableRFB';
 
 export const CONSOLE_STATUS = {
@@ -34,7 +37,9 @@ const clampLevel = (value, fallback) => {
 export default {
   name: 'NovncConsole',
 
-  components: { ModalWithCard },
+  components: {
+    RcButton, RcIcon, RcModal, NovncIcon
+  },
 
   props: {
     url: {
@@ -57,6 +62,11 @@ export default {
     vmRunning: {
       type:    Boolean,
       default: true
+    },
+
+    vmName: {
+      type:    String,
+      default: ''
     },
   },
 
@@ -101,8 +111,8 @@ export default {
       return this.t(`harvester.virtualMachine.detail.console.failure.${ this.failure || CONSOLE_FAILURE.ERROR }`);
     },
 
-    showReconnecting() {
-      return this.status === CONSOLE_STATUS.RECONNECTING;
+    showConnecting() {
+      return this.status === CONSOLE_STATUS.CONNECTING || this.status === CONSOLE_STATUS.RECONNECTING;
     },
   },
 
@@ -403,84 +413,92 @@ export default {
     />
 
     <div
-      v-if="showError || showReconnecting"
+      v-if="showError || showConnecting"
       class="novnc-overlay"
+      data-testid="vnc-overlay"
     >
       <div
         v-if="showError"
-        class="novnc-overlay__card text-center"
+        class="novnc-overlay__card"
       >
-        <h3>
+        <span
+          class="novnc-overlay__badge"
+          aria-hidden="true"
+        >
+          <NovncIcon type="wifi-off" />
+        </span>
+        <h3 class="novnc-overlay__title">
           {{ failureTitle }}
         </h3>
         <p
           v-if="statusDetail"
-          class="mt-10"
+          class="novnc-overlay__detail"
         >
           {{ statusDetail }}
         </p>
-        <button
-          class="btn role-primary mt-20"
-          @click="reconnect"
-        >
-          {{ t('harvester.action.reconnect') }}
-        </button>
-        <button
-          v-if="canTakeOver"
-          class="btn role-secondary mt-20 ml-10"
-          @click="takeOver"
-        >
-          {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
-        </button>
+        <div class="novnc-overlay__actions">
+          <RcButton
+            variant="primary"
+            data-testid="vnc-overlay-reconnect"
+            @click="reconnect"
+          >
+            {{ t('harvester.action.reconnect') }}
+          </RcButton>
+          <RcButton
+            v-if="canTakeOver"
+            variant="secondary"
+            data-testid="vnc-take-over"
+            @click="takeOver"
+          >
+            {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
+          </RcButton>
+        </div>
       </div>
 
       <div
         v-else
-        class="text-center"
+        class="novnc-overlay__connecting"
       >
-        <h2>
-          {{ t('vncConsole.reconnecting.message') }}：{{ retryTimes }} of {{ maximumRetryTimes }}
-        </h2>
+        <RcIcon
+          type="spinner"
+          size="xlarge"
+          class="icon-spin"
+        />
+        <p class="novnc-overlay__connecting-label">
+          {{ t('harvester.virtualMachine.detail.console.overlay.connecting', { name: vmName }) }}
+        </p>
         <p
-          v-if="statusDetail"
-          class="mt-10"
+          v-if="retryTimes > 0"
+          class="novnc-overlay__detail"
         >
-          {{ statusDetail }}
+          {{ t('harvester.virtualMachine.detail.console.overlay.attempt', { retryTimes, maximumRetryTimes }) }}
+          <template v-if="statusDetail">
+            {{ statusDetail }}
+          </template>
         </p>
       </div>
     </div>
 
-    <ModalWithCard
-      v-if="showTakeOverModal"
-      name="takeOverConsole"
-      :width="480"
-      @finish="cancelTakeOver"
+    <RcModal
+      :show="showTakeOverModal"
+      size="small"
+      :title="t('harvester.virtualMachine.detail.console.takeOver.title')"
+      data-testid="vnc-take-over-modal"
+      @close="cancelTakeOver"
     >
-      <template #title>
-        {{ t('harvester.virtualMachine.detail.console.takeOver.title') }}
-      </template>
+      <p>{{ t('harvester.virtualMachine.detail.console.takeOver.confirm') }}</p>
 
-      <template #content>
-        <p>{{ t('harvester.virtualMachine.detail.console.takeOver.confirm') }}</p>
+      <template #primary-action>
+        <RcButton
+          variant="primary"
+          size="large"
+          data-testid="vnc-take-over-confirm"
+          @click="confirmTakeOver"
+        >
+          {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
+        </RcButton>
       </template>
-
-      <template #footer>
-        <div class="take-over-actions">
-          <button
-            class="btn role-secondary mr-10"
-            @click="cancelTakeOver"
-          >
-            {{ t('generic.cancel') }}
-          </button>
-          <button
-            class="btn role-primary"
-            @click="confirmTakeOver"
-          >
-            {{ t('harvester.virtualMachine.detail.console.takeOver.label') }}
-          </button>
-        </div>
-      </template>
-    </ModalWithCard>
+    </RcModal>
   </div>
 </template>
 
@@ -496,6 +514,7 @@ export default {
     height: 100%;
   }
 
+  // The overlay always sits on the black framebuffer, whatever the theme, so its text is light.
   .novnc-overlay {
     position: absolute;
     top: 0;
@@ -507,29 +526,69 @@ export default {
     align-items: center;
     justify-content: center;
     overflow: auto;
-    background: rgba(0, 0, 0, 0.75);
-    // The overlay is always dark, so its text cannot follow the theme's text colours.
+    background: rgba(0, 0, 0, 0.6);
     color: #fff;
-
-    h2,
-    h3 {
-      color: #fff;
-    }
-
-    p {
-      color: rgba(255, 255, 255, 0.8);
-    }
+    text-align: center;
 
     &__card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      max-width: 480px;
+      padding: 32px;
+    }
+
+    &__badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--body-bg);
+      color: var(--body-text);
+
+      .novnc-icon {
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    &__title {
+      margin: 0;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    &__detail {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      line-height: 16px;
+    }
+
+    &__actions {
+      display: flex;
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    &__connecting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
       max-width: 480px;
       padding: 0 20px;
     }
-  }
 
-  .take-over-actions {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
+    &__connecting-label {
+      margin: 0;
+      font-size: 16px;
+      line-height: 21px;
+    }
   }
 </style>
 

@@ -1077,18 +1077,21 @@ harvester:
             message: The guest operating system is asked to shut down and restart. The console disconnects while the VM restarts and reconnects when it is back.
             button: Soft reboot
         takeOver:
-          label: Take Over
+          label: Take over
           title: Take over this console?
           confirm: The other VNC session connected to this virtual machine will be disconnected.
+        overlay:
+          connecting: 'Connecting to {name}…'
+          attempt: 'Attempt {retryTimes} of {maximumRetryTimes}.'
         failure:
           inUse: This console is in use
           unavailable: Unable to connect
-          dropped: Disconnected
+          dropped: Connection lost
           error: Connection failed
         failureDetail:
           inUse: Another VNC session is connected to this virtual machine. Retry once it is released, or take over the console to disconnect the other session.
           unavailable: The console is not available. Check that the virtual machine is running, then retry.
-          dropped: The console connection was closed. Another VNC session may have opened this console.
+          dropped: The console stopped receiving data from the virtual machine. The VM itself may still be running, or another VNC session may have opened this console.
         status:
           connecting: Connecting…
           connected: Connected
