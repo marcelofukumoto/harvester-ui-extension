@@ -126,9 +126,10 @@ export default {
               :key="item.index"
               class="shortcut-menu__saved"
               data-testid="vnc-saved-shortcut"
+              :title="item.name"
               @click="$emit('send-shortcut', item.keys)"
             >
-              {{ item.name }}
+              <span class="shortcut-menu__saved-name">{{ item.name }}</span>
               <template #after>
                 <span class="shortcut-menu__chip">{{ item.label }}</span>
               </template>
@@ -260,6 +261,16 @@ export default {
       margin: 0 9px;
       padding: 4px 8px;
       font-size: 14px;
+
+      // Long names stay on two lines; the full one is in the tooltip.
+      .shortcut-menu__saved-name {
+        display: -webkit-box;
+        min-width: 0;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+      }
 
       .shortcut-menu__chip {
         display: inline-flex;

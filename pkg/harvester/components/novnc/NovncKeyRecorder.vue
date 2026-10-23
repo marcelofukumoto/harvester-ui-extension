@@ -37,7 +37,7 @@ export default {
     },
 
     labels() {
-      return this.value.map((K) => keyLabel(baseKey(K).key));
+      return this.value.map((K) => keyLabel(baseKey(K, this.value).key));
     },
 
     valueId() {
@@ -103,7 +103,7 @@ export default {
         return;
       }
 
-      this.$emit('update:value', [...this.pending, recordKey(event)]);
+      this.$emit('update:value', [...this.pending, recordKey(event, this.pending)]);
       this.stop();
     },
   },

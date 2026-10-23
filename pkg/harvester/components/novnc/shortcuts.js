@@ -21,16 +21,21 @@ export function keyLabel(key = '') {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
-// macOS Option and some layouts turn a letter into a symbol (Option+G gives ©). The key that was
-// pressed is still in `code`, so a letter key is named, labelled and sent after it.
-export function baseKey(K) {
+// macOS Option turns a letter into a symbol (Option+G gives ©, Option+E a dead key). The key that was
+// pressed is still in `code`, so in that case the letter is named after it. Only with Alt and no Ctrl:
+// AZERTY's comma on KeyM, Dvorak's punctuation or Cyrillic letters are real keys, and Windows AltGr
+// reports Ctrl+Alt with a real character.
+export function baseKey(K, combination = []) {
   const letter = /^Key([A-Z])$/.exec(K?.code || '');
 
-  if (letter && !/^[a-z]$/i.test(K.key || '')) {
-    return { ...K, key: letter[1].toLowerCase() };
+  if (!letter || /^[a-z]$/i.test(K.key || '')) {
+    return K;
   }
 
-  return K;
+  const held = combination.map((M) => M.key);
+  const isOptionSymbol = held.includes('Alt') && !held.includes('Control');
+
+  return K.key === 'Dead' || isOptionSymbol ? { ...K, key: letter[1].toLowerCase() } : K;
 }
 
 export function normalizeShortcut(item) {
@@ -42,7 +47,9 @@ export function normalizeShortcut(item) {
 }
 
 export function shortcutLabels(shortcut) {
-  return (shortcut?.keys || []).map((K) => keyLabel(baseKey(K).key));
+  const keys = shortcut?.keys || [];
+
+  return keys.map((K) => keyLabel(baseKey(K, keys).key));
 }
 
 // Two shortcuts are the same when they press the same keys, whatever they are called.
@@ -51,14 +58,14 @@ export function shortcutId(shortcut) {
 }
 
 // Only what sending a shortcut needs, so a recorded KeyboardEvent can be stored.
-export function recordKey(event) {
+export function recordKey(event, combination = []) {
   const {
     key, keyCode, code, location, charCode
   } = event;
 
   return baseKey({
     key, keyCode, code, location, charCode
-  });
+  }, combination);
 }
 
 function parse(value, fallback) {

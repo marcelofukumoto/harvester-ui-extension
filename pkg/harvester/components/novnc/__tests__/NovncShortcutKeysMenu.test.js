@@ -67,6 +67,10 @@ describe('shortcuts', () => {
     expect(keyLabel('F2')).toBe('F2');
     expect(shortcutLabels({ keys: [{ key: 'Shift' }, { key: ' ' }] })).toStrictEqual(['Shift', 'Space']);
     expect(shortcutLabels({ keys: [{ key: 'Alt', code: 'AltLeft' }, { key: '©', code: 'KeyG' }] })).toStrictEqual(['Alt', 'G']);
+    // Real keys of other layouts stay as typed: AZERTY comma on KeyM, Windows AltGr (Ctrl+Alt) letters.
+    expect(shortcutLabels({ keys: [{ key: 'Control', code: 'ControlLeft' }, { key: ',', code: 'KeyM' }] })).toStrictEqual(['Ctrl', ',']);
+    expect(shortcutLabels({ keys: [{ key: 'Control', code: 'ControlLeft' }, { key: 'Alt', code: 'AltRight' }, { key: 'ą', code: 'KeyA' }] })).toStrictEqual(['Ctrl', 'Alt', 'Ą']);
+    expect(shortcutLabels({ keys: [{ key: 'Alt', code: 'AltLeft' }, { key: 'Dead', code: 'KeyE' }] })).toStrictEqual(['Alt', 'E']);
   });
 
   it('should keep the key list in the format older versions read and store names apart', async() => {

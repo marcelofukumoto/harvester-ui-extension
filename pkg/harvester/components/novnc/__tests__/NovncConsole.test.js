@@ -97,6 +97,36 @@ describe('component: NovncConsole', () => {
     lastRFB().emit('disconnect');
 
     expect(wrapper.vm.failure).toBe(CONSOLE_FAILURE.UNAVAILABLE);
+    expect(wrapper.vm.canTakeOver).toBe(false);
+  });
+
+  it('should retry, not report in use, when a VM that just started refuses the first connection', async() => {
+    const wrapper = mountConsole({ startedAt: Date.now() });
+
+    await jest.runOnlyPendingTimersAsync();
+    lastRFB().emit('disconnect');
+
+    expect(wrapper.vm.status).toBe(CONSOLE_STATUS.RECONNECTING);
+    expect(wrapper.vm.failure).toBe('');
+  });
+
+  it('should keep counting retries when Reconnect now skips the wait', async() => {
+    const wrapper = mountConsole();
+
+    await jest.runOnlyPendingTimersAsync();
+    lastRFB().emit('connect');
+    lastRFB().emit('disconnect');
+    expect(wrapper.vm.retryTimes).toBe(1);
+
+    wrapper.vm.retryNow();
+
+    expect(wrapper.vm.retryTimes).toBe(1);
+    expect(wrapper.vm.status).toBe(CONSOLE_STATUS.RECONNECTING);
+
+    // Still held by the other session: back to waiting, not the in-use failure.
+    lastRFB().emit('disconnect');
+    expect(wrapper.vm.status).toBe(CONSOLE_STATUS.RECONNECTING);
+    expect(wrapper.vm.retryTimes).toBe(2);
   });
 
   it('should only take over after the modal is confirmed', async() => {

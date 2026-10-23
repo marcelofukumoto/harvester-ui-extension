@@ -139,6 +139,7 @@ export default {
         v-model:value="name"
         :label="t('harvester.virtualMachine.detail.console.customKeys.name')"
         data-testid="vnc-shortcut-name"
+        @keyup.enter="add"
       />
 
       <div class="custom-keys__new-actions">

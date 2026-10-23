@@ -23,6 +23,8 @@ export const CONSOLE_FAILURE = {
 const MAXIMUM_RETRY_TIMES = 10;
 const BASE_RECONNECT_DELAY = 1000;
 const MAXIMUM_RECONNECT_DELAY = 30000;
+// A VM that just started can refuse VNC for a moment; refusals this soon are retried, not reported.
+const STARTUP_GRACE = 60000;
 
 const clampLevel = (value, fallback) => {
   const level = Number.parseInt(value, 10);
@@ -67,6 +69,12 @@ export default {
     vmName: {
       type:    String,
       default: ''
+    },
+
+    // When the VM was seen starting to run on this page (ms), or 0.
+    startedAt: {
+      type:    Number,
+      default: 0
     },
   },
 
@@ -202,6 +210,13 @@ export default {
       this.connect();
     },
 
+    // Skip the wait before the next retry, still counting it as one, so a held console keeps
+    // being retried instead of turning into the in-use failure.
+    retryNow() {
+      this.clearReconnectTimer();
+      this.connect();
+    },
+
     // The modal is teleported out of the console, so it would be hidden behind full screen.
     takeOver() {
       if (document.fullscreenElement) {
@@ -280,12 +295,18 @@ export default {
         // Retries use preserveSession, so they fail while another session owns the
         // console. Keep retrying so the console is picked up once it is released,
         // instead of kicking the other session back out.
-        this.statusDetail = this.t('harvester.virtualMachine.detail.console.status.inUse');
+        this.statusDetail = this.isStartingUp() ? '' : this.t('harvester.virtualMachine.detail.console.status.inUse');
+        this.scheduleReconnect();
+      } else if (this.isStartingUp()) {
         this.scheduleReconnect();
       } else {
         this.clearReconnectTimer();
         this.fail(this.preserveSession && this.vmRunning ? CONSOLE_FAILURE.IN_USE : CONSOLE_FAILURE.UNAVAILABLE);
       }
+    },
+
+    isStartingUp() {
+      return !!this.startedAt && Date.now() - this.startedAt < STARTUP_GRACE;
     },
 
     // The browser cannot see why a WebSocket handshake failed. With preserveSession and a
@@ -451,11 +472,13 @@ export default {
         v-else
         class="novnc-overlay__connecting"
       >
-        <RcIcon
-          type="spinner"
-          size="inherit"
-          class="icon-spin novnc-overlay__spinner"
-        />
+        <span class="novnc-overlay__spinner">
+          <RcIcon
+            type="spinner"
+            size="inherit"
+            class="icon-spin"
+          />
+        </span>
         <p class="novnc-overlay__connecting-label">
           {{ t('harvester.virtualMachine.detail.console.overlay.connecting', { name: vmName }) }}
         </p>
@@ -472,7 +495,7 @@ export default {
           v-if="retryTimes > 0"
           variant="secondary"
           data-testid="vnc-reconnect-now"
-          @click="reconnect"
+          @click="retryNow"
         >
           {{ t('harvester.virtualMachine.detail.console.overlay.reconnectNow') }}
         </RcButton>
@@ -553,8 +576,9 @@ export default {
       padding: 0 20px;
     }
 
-    // RcIcon has no 20px size, the one the design uses here.
+    // RcIcon has no 20px size, the one the design uses here, so it inherits it.
     &__spinner {
+      display: flex;
       font-size: 20px;
     }
 

@@ -60,6 +60,7 @@ import { ADD_ONS } from './harvester-map';
 import { registerAddonSideNav } from '../utils/dynamic-nav';
 import { setVendor } from '@shell/config/private-label';
 import { SETTING } from '@shell/config/settings';
+import { setFavIcon } from '@shell/utils/favicon';
 
 const TEMPLATE = HCI.VM_VERSION;
 const MONITORING_GROUP = 'Monitoring & Logging::Monitoring';
@@ -132,13 +133,16 @@ export function init($plugin, store) {
         // ui-brand=harvester, which has no stylesheet; the setting is only switched in this browser.
         const brandSetting = store.getters['management/byId'](MANAGEMENT.SETTING, SETTING.BRAND);
 
+        // Only Harvester's own brand is replaced; a server brand such as rgs or federal keeps its look.
         if (brandSetting) {
-          if (isHarvesterPrime && brandSetting.value !== BRAND.SUSE) {
+          if (isHarvesterPrime && (!brandSetting.value || brandSetting.value === PRODUCT_NAME)) {
             harvesterBrand = brandSetting.value;
             brandSetting.value = BRAND.SUSE;
+            setFavIcon(store);
           } else if (!isHarvesterPrime && harvesterBrand !== undefined && brandSetting.value === BRAND.SUSE) {
             brandSetting.value = harvesterBrand;
             harvesterBrand = undefined;
+            setFavIcon(store);
           }
         }
 

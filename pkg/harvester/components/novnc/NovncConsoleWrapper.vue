@@ -117,9 +117,15 @@ export default {
     }
 
     const uid = this.$route?.params?.uid;
-    const vms = uid ? await this.$store.dispatch('harvester/findAll', { type: HCI.VM }) : [];
 
-    this.vmResource = (vms || []).find((vm) => vm.metadata?.uid === uid) || {};
+    try {
+      const vms = uid ? await this.$store.dispatch('harvester/findAll', { type: HCI.VM }) : [];
+
+      this.vmResource = (vms || []).find((vm) => vm.metadata?.uid === uid) || {};
+    } catch (err) {
+      // Only the name is missing then; the not-running card still shows.
+      this.vmResource = {};
+    }
   },
 
   props: {
@@ -140,6 +146,7 @@ export default {
       capabilities:      {},
       isFullscreen:      false,
       confirmAction:     null,
+      startedAt:         0,
       consoleStatus:     {
         status:            'connecting',
         retryTimes:        0,
@@ -167,8 +174,9 @@ export default {
       return this.consoleStatus.status === CONSOLE_STATUS.CONNECTED;
     },
 
+    // A console that just went away can still report connected for a moment.
     canSendKeys() {
-      return this.isConnected;
+      return !this.isDown && this.isConnected;
     },
 
     vmName() {
@@ -184,8 +192,14 @@ export default {
       return this.isDown ? CONNECTION_STATE.NOT_RUNNING : this.consoleStatus.status;
     },
 
+    // VNC only exists while the instance runs. A starting instance (Pending, Scheduling) would refuse
+    // the first connection and leave "Unable to connect", so the console waits for Running instead.
     isDown() {
-      return this.isEmpty(this.value);
+      return this.isEmpty(this.value) || !this.vmRunning;
+    },
+
+    isStarting() {
+      return !this.isEmpty(this.value) && ['Pending', 'Scheduling', 'Scheduled'].includes(this.value?.status?.phase);
     },
 
     preserveSession() {
@@ -247,6 +261,17 @@ export default {
   },
 
   watch: {
+    // The console unmounts without a last status, so start over as connecting for when it is back.
+    isDown(down, wasDown) {
+      if (down) {
+        this.consoleStatus = {
+          status: CONSOLE_STATUS.CONNECTING, retryTimes: 0, maximumRetryTimes: 0, desktopName: ''
+        };
+      } else if (wasDown) {
+        this.startedAt = Date.now();
+      }
+    },
+
     settings: {
       deep: true,
       handler(neu) {
@@ -295,7 +320,8 @@ export default {
         return;
       }
 
-      const keyList = [].concat(keys).map(baseKey);
+      const combination = [].concat(keys);
+      const keyList = combination.map((K) => baseKey(K, combination));
 
       keyList.forEach((K) => {
         this.$refs.novncConsole.sendKey(KeyboardUtil.getKeysym(K), KeyboardUtil.getKeycode(K), true);
@@ -317,6 +343,17 @@ export default {
     // so queue ours behind it.
     focusConsoleAfterModal() {
       this.$nextTick(() => setTimeout(() => this.$refs.novncConsole?.focus()));
+    },
+
+    // Closing the View panel from the keyboard (Esc) leaves the focus nowhere; give it back to the
+    // View button, as the menus do. A click elsewhere keeps the focus it moved.
+    onViewHide() {
+      const focused = document.activeElement;
+
+      // floating-vue hides the panel without removing it, so the focus is still in it at this point.
+      if (!focused || focused === document.body || focused.closest('.v-popper__popper')) {
+        this.$refs.viewButton?.focus();
+      }
     },
 
     showKeysModal() {
@@ -529,8 +566,10 @@ export default {
             placement="bottom-end"
             trigger="click"
             :container="false"
+            @hide="onViewHide"
           >
             <RcButton
+              ref="viewButton"
               variant="tertiary"
               left-icon="show"
               right-icon="chevron-down"
@@ -570,6 +609,7 @@ export default {
           :preserve-session="preserveSession"
           :vm-running="vmRunning"
           :vm-name="vmName"
+          :started-at="startedAt"
           @status-changed="onStatusChanged"
           @capabilities="onCapabilities"
         />
@@ -580,8 +620,8 @@ export default {
         >
           <NovncStatusCard
             icon="power"
-            :title="t('harvester.virtualMachine.detail.console.notRunning.title')"
-            :detail="t('harvester.virtualMachine.detail.console.notRunning.detail')"
+            :title="t(`harvester.virtualMachine.detail.console.notRunning.${ isStarting ? 'startingTitle' : 'title' }`)"
+            :detail="t(`harvester.virtualMachine.detail.console.notRunning.${ isStarting ? 'startingDetail' : 'detail' }`)"
           />
         </div>
         <p
@@ -755,8 +795,9 @@ export default {
     }
   }
 
-  // RcButton has no destructive variant; this is how the shell's own dialogs colour one.
-  .confirm-modal__danger.rc-button {
+  // RcButton has no destructive variant; this is how the shell's own dialogs colour one. The class
+  // is doubled to outrank RcButton's variant rules instead of relying on stylesheet order.
+  .confirm-modal__danger.confirm-modal__danger.rc-button {
     &,
     &:focus,
     &.focused {

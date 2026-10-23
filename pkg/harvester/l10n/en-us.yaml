@@ -1014,6 +1014,8 @@ harvester:
         notRunning:
           title: This virtual machine is not running
           detail: Start it to use its console.
+          startingTitle: This virtual machine is starting
+          startingDetail: The console connects once it is running.
         shortcutKeys: Shortcut keys
         softReboot: Soft reboot
         view: View
