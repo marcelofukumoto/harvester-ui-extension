@@ -1012,7 +1012,13 @@ harvester:
         down: No events in the past hour
       console:
         down: This virtual machine is down. Please start it to access its console.
-        shortcutKeys: Shortcut Keys
+        shortcutKeys: Shortcut keys
+        softReboot: Soft reboot
+        view: View
+        hint: Clicking the console captures your keyboard. To send a shortcut, use the Shortcut keys menu.
+        connection:
+          menuLabel: Connection
+          description: Connected to {name}. If the screen stops updating, reconnecting usually fixes it.
         customShortcutKeys: Custom Shortcut Keys
         management: Management Shortcut Keys
         record:
@@ -1033,8 +1039,8 @@ harvester:
           quality: JPEG quality
           compression: Compression level
         fullscreen:
-          enter: Full Screen
-          exit: Exit Full Screen
+          enter: Full screen
+          exit: Exit full screen
         ctrlAltDel: Ctrl+Alt+Del
         confirm:
           ctrlAltDel:
@@ -1059,7 +1065,7 @@ harvester:
           unavailable: The console is not available. Check that the virtual machine is running, then retry.
           dropped: The console connection was closed. Another VNC session may have opened this console.
         status:
-          connecting: Connecting
+          connecting: Connecting…
           connected: Connected
           connectedViewOnly: Connected (view only)
           disconnected: Disconnected

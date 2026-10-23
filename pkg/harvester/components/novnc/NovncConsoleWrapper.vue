@@ -1,14 +1,17 @@
 <script>
 import { STEVE } from '@shell/config/types';
 import ModalWithCard from '@shell/components/ModalWithCard';
+import { RcButton } from '@components/RcButton';
 import { escapeHtml } from '@shell/utils/string';
 import { allHash } from '@shell/utils/promise';
 import KeyTable from '@novnc/novnc/core/input/keysym';
 import * as KeyboardUtil from '@novnc/novnc/core/input/util';
 import { HCI } from '../../types';
-import NovncConsole from './NovncConsole';
+import NovncConsole, { CONSOLE_STATUS } from './NovncConsole';
 import NovncConsoleItem from './NovncConsoleItem';
 import NovncConsoleCustomKeys from './NovncConsoleCustomKeys';
+import NovncConnectionStatus from './NovncConnectionStatus';
+import NovncIcon from './NovncIcon';
 import { normalizeZoom } from './ZoomableRFB';
 
 const CONSOLE_SETTINGS_KEY = 'harvester-vnc-console-settings';
@@ -127,7 +130,7 @@ const F_KEYS = {
 export default {
   name:       'NovncConsoleWrapper',
   components: {
-    ModalWithCard, NovncConsole, NovncConsoleItem, NovncConsoleCustomKeys
+    ModalWithCard, RcButton, NovncConsole, NovncConsoleItem, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon
   },
 
   async fetch() {
@@ -199,8 +202,20 @@ export default {
       });
     },
 
+    isConnected() {
+      return this.consoleStatus.status === CONSOLE_STATUS.CONNECTED;
+    },
+
     canSendKeys() {
-      return this.consoleStatus.status === 'connected' && !this.settings.viewOnly;
+      return this.isConnected && !this.settings.viewOnly;
+    },
+
+    vmName() {
+      return this.value?.metadata?.name || '';
+    },
+
+    vmNamespace() {
+      return this.value?.metadata?.namespace || '';
     },
 
     isDown() {
@@ -276,14 +291,19 @@ export default {
       }));
     },
 
+    // The pill has one label per state it shows; retries are counted on the console overlay.
     statusLabel() {
-      const { status, retryTimes, maximumRetryTimes } = this.consoleStatus;
+      const { status } = this.consoleStatus;
 
-      if (status === 'reconnecting') {
-        return this.t('harvester.virtualMachine.detail.console.status.reconnecting', { retryTimes, maximumRetryTimes });
+      if (status === CONSOLE_STATUS.RECONNECTING) {
+        return this.t('harvester.virtualMachine.detail.console.status.connecting');
       }
 
-      if (status === 'connected' && this.settings.viewOnly) {
+      if (status === CONSOLE_STATUS.FAILED) {
+        return this.t('harvester.virtualMachine.detail.console.status.disconnected');
+      }
+
+      if (status === CONSOLE_STATUS.CONNECTED && this.settings.viewOnly) {
         return this.t('harvester.virtualMachine.detail.console.status.connectedViewOnly');
       }
 
@@ -458,21 +478,41 @@ export default {
       ref="consoleContainer"
       class="vm-console"
     >
-      <div class="combination-keys">
-        <div class="toolbar-group">
+      <header class="console-toolbar">
+        <div class="console-toolbar__identity">
+          <div class="console-toolbar__vm">
+            <span
+              class="console-toolbar__vm-name"
+              data-testid="vnc-vm-name"
+            >{{ vmName }}</span>
+            <span class="console-toolbar__vm-namespace">{{ vmNamespace }}</span>
+          </div>
+
+          <NovncConnectionStatus
+            :status="consoleStatus.status"
+            :label="statusLabel"
+            :vm-name="vmName"
+            @reconnect="reconnect"
+          />
+        </div>
+
+        <div class="console-toolbar__group">
           <v-dropdown
             ref="popover"
-            placement="top"
+            placement="bottom-start"
             trigger="click"
             :container="false"
             @auto-hide="keysRecord = []"
           >
-            <button
-              class="btn btn-sm bg-primary"
+            <RcButton
+              variant="tertiary"
+              left-icon="keyboard"
+              right-icon="chevron-down"
+              data-testid="vnc-shortcut-keys"
               :disabled="!canSendKeys"
             >
               {{ t("harvester.virtualMachine.detail.console.shortcutKeys") }}
-            </button>
+            </RcButton>
 
             <template #popper>
               <novnc-console-item
@@ -484,60 +524,54 @@ export default {
               />
             </template>
           </v-dropdown>
+        </div>
 
-          <button
-            class="btn btn-sm bg-primary"
+        <span
+          class="console-toolbar__divider"
+          aria-hidden="true"
+        />
+
+        <div class="console-toolbar__group">
+          <RcButton
+            variant="tertiary"
+            data-testid="vnc-ctrl-alt-del"
             :disabled="!canSendKeys"
             @click="ctrlAltDelete"
           >
-            {{ t("harvester.virtualMachine.detail.console.ctrlAltDel") }}
-          </button>
-
-          <v-dropdown
-            v-if="!hideCustomKeysBar"
-            placement="top"
-            trigger="click"
-            :container="false"
-          >
-            <button class="btn btn-sm bg-primary">
-              {{ t("harvester.virtualMachine.detail.console.customShortcutKeys") }}
-            </button>
-
-            <template #popper>
-              <div>
-                <button
-                  class="btn btn-sm bg-primary"
-                  @click="showKeysModal"
-                >
-                  {{ t("harvester.virtualMachine.detail.console.management") }}
-                </button>
-              </div>
-
-              <hr>
-
-              <div
-                v-for="(keys, index) in preferredShortcutKeys"
-                :key="index"
-              >
-                <button
-                  class="btn btn-sm bg-primary"
-                  :disabled="!canSendKeys"
-                  @click="sendCustomKeys(keys.value)"
-                >
-                  {{ keys.label }}
-                </button>
-              </div>
+            <template #before>
+              <NovncIcon type="power" />
             </template>
-          </v-dropdown>
+            {{ t("harvester.virtualMachine.detail.console.ctrlAltDel") }}
+          </RcButton>
 
+          <RcButton
+            v-if="hasSoftRebootAction"
+            variant="tertiary"
+            left-icon="refresh-alt"
+            data-testid="vnc-soft-reboot"
+            :disabled="!isConnected"
+            @click="softReboot"
+          >
+            {{ t("harvester.virtualMachine.detail.console.softReboot") }}
+          </RcButton>
+        </div>
+
+        <span class="console-toolbar__spacer" />
+
+        <div class="console-toolbar__group">
           <v-dropdown
-            placement="top"
+            placement="bottom-end"
             trigger="click"
             :container="false"
           >
-            <button class="btn btn-sm bg-primary">
-              {{ t("harvester.virtualMachine.detail.console.settings.label") }}
-            </button>
+            <RcButton
+              variant="tertiary"
+              left-icon="show"
+              right-icon="chevron-down"
+              data-testid="vnc-view"
+            >
+              {{ t("harvester.virtualMachine.detail.console.view") }}
+            </RcButton>
 
             <template #popper>
               <div class="console-panel">
@@ -619,52 +653,38 @@ export default {
               </div>
             </template>
           </v-dropdown>
-        </div>
 
-        <div class="toolbar-group">
-          <span
-            class="console-status"
-            role="status"
-            aria-live="polite"
-          >{{ statusLabel }}</span>
-
-          <button
-            v-if="hasSoftRebootAction"
-            class="btn btn-sm bg-primary"
-            @click="softReboot"
-          >
-            {{ t("harvester.action.softreboot") }}
-          </button>
-
-          <button
-            class="btn btn-sm bg-primary"
-            @click="reconnect"
-          >
-            {{ t("harvester.action.reconnect") }}
-          </button>
-
-          <button
-            class="btn btn-sm bg-primary"
+          <RcButton
+            variant="tertiary"
+            data-testid="vnc-fullscreen"
             @click="toggleFullscreen"
           >
+            <template #before>
+              <NovncIcon :type="isFullscreen ? 'minimize' : 'maximize'" />
+            </template>
             {{ isFullscreen ? t('harvester.virtualMachine.detail.console.fullscreen.exit') : t('harvester.virtualMachine.detail.console.fullscreen.enter') }}
-          </button>
+          </RcButton>
         </div>
-      </div>
+      </header>
 
-      <NovncConsole
-        v-if="url && !isDown"
-        ref="novncConsole"
-        :url="url"
-        :settings="rfbSettings"
-        :preserve-session="preserveSession"
-        :vm-running="vmRunning"
-        @status-changed="onStatusChanged"
-        @capabilities="onCapabilities"
-      />
-      <p v-if="isDown">
-        {{ t("harvester.virtualMachine.detail.console.down") }}
-      </p>
+      <div class="console-area">
+        <NovncConsole
+          v-if="url && !isDown"
+          ref="novncConsole"
+          :url="url"
+          :settings="rfbSettings"
+          :preserve-session="preserveSession"
+          :vm-running="vmRunning"
+          @status-changed="onStatusChanged"
+          @capabilities="onCapabilities"
+        />
+        <p v-if="isDown">
+          {{ t("harvester.virtualMachine.detail.console.down") }}
+        </p>
+        <p class="console-area__hint">
+          {{ t("harvester.virtualMachine.detail.console.hint") }}
+        </p>
+      </div>
 
       <ModalWithCard
         v-if="confirmAction"
@@ -713,32 +733,88 @@ export default {
     height: 100vh;
     height: 100dvh;
     display: grid;
-    grid-template-rows: 32px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    background: var(--body-bg);
   }
 
-  .combination-keys {
+  .console-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    background: rgb(40, 40, 40);
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--nav-bg);
+
+    &__identity {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-right: 8px;
+    }
+
+    &__vm {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    &__vm-name {
+      color: var(--body-text);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 21px;
+    }
+
+    &__vm-namespace {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    &__group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    &__divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    &__spacer {
+      flex: 1;
+    }
   }
 
-  .toolbar-group {
+  .console-area {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    padding: 24px;
+
+    // vnc.vue stretches every nested div to the full height; the hint needs its row.
+    > .novnc-console {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+    }
+
+    &__hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+      text-align: center;
+    }
   }
 
   .confirm-actions {
     display: flex;
     justify-content: flex-end;
     width: 100%;
-  }
-
-  .console-status {
-    color: #fff;
-    font-size: 12px;
-    margin-right: 8px;
   }
 
   .console-panel {

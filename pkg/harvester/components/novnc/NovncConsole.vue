@@ -169,6 +169,8 @@ export default {
         return;
       }
 
+      // noVNC paints its own grey behind the framebuffer; let the console area show through.
+      rfb.background = 'transparent';
       rfb.addEventListener('connect', this.onConnect);
       rfb.addEventListener('disconnect', this.onDisconnect);
       rfb.addEventListener('securityfailure', this.onSecurityFailure);
@@ -487,7 +489,8 @@ export default {
     position: relative;
     box-sizing: border-box;
     height: 100%;
-    padding: 8px;
+    // Room for the 2px focus ring, which is drawn outside the canvas.
+    padding: 2px;
     overflow: hidden;
   }
 
@@ -533,8 +536,13 @@ export default {
 </style>
 
 <style lang="scss">
-  // noVNC sets an inline `outline: none` on its canvas, so mark keyboard focus with a ring instead.
+  // noVNC sets an inline `outline: none` on its canvas, so frame the screen with a ring instead:
+  // a thin border at rest and a 2px primary one while it holds the keyboard.
+  .novnc-screen canvas {
+    box-shadow: 0 0 0 1px var(--border);
+  }
+
   .novnc-screen.is-focused canvas {
-    box-shadow: 0 0 0 2px var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-keyboard-focus);
   }
 </style>
