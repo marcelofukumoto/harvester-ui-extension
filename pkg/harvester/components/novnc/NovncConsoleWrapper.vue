@@ -384,6 +384,8 @@ export default {
           // Keyboard lock lets shortcuts such as Ctrl+W and F11 reach the guest.
           await navigator.keyboard?.lock?.(['KeyW', 'F11']);
         }
+
+        this.focusConsole();
       } catch (err) {
         this.$store.dispatch('growl/fromError', {
           title: this.t('generic.notification.title.error', { name: escapeHtml(this.value.metadata.name) }),
@@ -409,8 +411,40 @@ export default {
     <div
       ref="consoleContainer"
       class="vm-console"
+      :class="{ 'vm-console--fullscreen': isFullscreen }"
     >
-      <header class="console-toolbar">
+      <div
+        v-if="isFullscreen"
+        class="fullscreen-bar"
+        data-testid="vnc-fullscreen-bar"
+      >
+        <span class="fullscreen-bar__name">{{ vmName }}</span>
+        <NovncConnectionStatus
+          :status="consoleStatus.status"
+          :label="statusLabel"
+          :vm-name="vmName"
+          @reconnect="reconnect"
+        />
+        <span
+          class="console-toolbar__divider"
+          aria-hidden="true"
+        />
+        <RcButton
+          variant="tertiary"
+          data-testid="vnc-exit-fullscreen"
+          @click="toggleFullscreen"
+        >
+          <template #before>
+            <NovncIcon type="minimize" />
+          </template>
+          {{ t('harvester.virtualMachine.detail.console.fullscreen.exit') }}
+        </RcButton>
+      </div>
+
+      <header
+        v-else
+        class="console-toolbar"
+      >
         <div class="console-toolbar__identity">
           <div class="console-toolbar__vm">
             <span
@@ -523,7 +557,10 @@ export default {
         <p v-if="isDown">
           {{ t("harvester.virtualMachine.detail.console.down") }}
         </p>
-        <p class="console-area__hint">
+        <p
+          v-if="!isFullscreen"
+          class="console-area__hint"
+        >
           {{ t("harvester.virtualMachine.detail.console.hint") }}
         </p>
       </div>
@@ -568,6 +605,41 @@ export default {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     background: var(--body-bg);
+
+    // The toolbar gives way to a floating bar; the screen keeps the room under it.
+    &--fullscreen {
+      position: relative;
+      grid-template-rows: minmax(0, 1fr);
+
+      .console-area {
+        padding-top: 72px;
+      }
+    }
+  }
+
+  .fullscreen-bar {
+    // vnc.vue stretches the console's child divs to full height; the bar keeps its own.
+    height: auto;
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 4px 4px 16px;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--nav-bg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform: translateX(-50%);
+
+    &__name {
+      color: var(--body-text);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 18px;
+    }
   }
 
   .console-toolbar {

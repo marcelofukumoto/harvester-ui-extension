@@ -201,7 +201,12 @@ export default {
       this.connect();
     },
 
+    // The modal is teleported out of the console, so it would be hidden behind full screen.
     takeOver() {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       this.showTakeOverModal = true;
     },
 
