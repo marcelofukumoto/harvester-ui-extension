@@ -28,6 +28,47 @@ describe('component: NovncShortcutKeysMenu', () => {
     expect(wrapper.vm.held).toStrictEqual([]);
   });
 
+  it('should offer the keys that go with what is held, like the old menu', async() => {
+    const wrapper = mountMenu();
+    const keys = () => wrapper.vm.keyOptions.map((K) => K.key);
+
+    expect(keys()).toStrictEqual(['PrintScreen']);
+    expect(wrapper.vm.showFunctionKeys).toBe(true);
+
+    wrapper.vm.toggleModifier('ControlLeft', true);
+    expect(keys()).toStrictEqual(['KeyN', 'KeyT', 'KeyW', 'KeyY']);
+    expect(wrapper.vm.showFunctionKeys).toBe(false);
+
+    wrapper.vm.toggleModifier('AltLeft', true);
+    expect(keys()).toStrictEqual(['Delete']);
+    expect(wrapper.vm.showFunctionKeys).toBe(true);
+
+    wrapper.vm.toggleModifier('ControlLeft', false);
+    expect(keys()).toStrictEqual(['PrintScreen']);
+    expect(wrapper.vm.showFunctionKeys).toBe(true);
+  });
+
+  it('should send Ctrl+W from the menu', () => {
+    const wrapper = mountMenu();
+
+    wrapper.vm.toggleModifier('ControlLeft', true);
+    wrapper.vm.sendKey('KeyW');
+
+    expect(wrapper.emitted('send-keys')).toStrictEqual([[['ControlLeft', 'KeyW']]]);
+  });
+
+  it('should hand Ctrl+Alt+Del to the confirmation instead of sending it', () => {
+    const wrapper = mountMenu();
+
+    wrapper.vm.toggleModifier('ControlLeft', true);
+    wrapper.vm.toggleModifier('AltLeft', true);
+    wrapper.vm.sendKey('Delete');
+
+    expect(wrapper.emitted('ctrl-alt-del')).toHaveLength(1);
+    expect(wrapper.emitted('send-keys')).toBeUndefined();
+    expect(wrapper.vm.held).toStrictEqual([]);
+  });
+
   it('should let held modifiers go when the menu closes without a key', () => {
     const wrapper = mountMenu();
 

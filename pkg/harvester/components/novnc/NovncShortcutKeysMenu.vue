@@ -12,6 +12,15 @@ export const MODIFIERS = [
 
 export const FUNCTION_KEYS = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
 
+// Ctrl alone offers the browser shortcuts the guest cannot get from the keyboard (the browser keeps
+// Ctrl+N/T/W for itself), as the old cascading menu did.
+export const CTRL_KEYS = [
+  { key: 'KeyN', label: 'N' },
+  { key: 'KeyT', label: 'T' },
+  { key: 'KeyW', label: 'W' },
+  { key: 'KeyY', label: 'Y' },
+];
+
 export default {
   name: 'NovncShortcutKeysMenu',
 
@@ -38,7 +47,7 @@ export default {
     },
   },
 
-  emits: ['send-keys', 'send-shortcut', 'manage'],
+  emits: ['send-keys', 'send-shortcut', 'manage', 'ctrl-alt-del'],
 
   data() {
     return { held: [] };
@@ -51,6 +60,33 @@ export default {
 
     functionKeys() {
       return FUNCTION_KEYS;
+    },
+
+    holdsCtrl() {
+      return this.held.includes('ControlLeft');
+    },
+
+    holdsAlt() {
+      return this.held.includes('AltLeft');
+    },
+
+    // What the keys below the toggles offer follows what is held, so the menu sends the same
+    // combinations as the old one: Ctrl+N/T/W/Y, Ctrl+Alt+Del, Alt+Print Screen and Alt+F1-F12, plus
+    // Ctrl+Alt+F1-F12 to switch Linux consoles.
+    keyOptions() {
+      if (this.holdsCtrl && this.holdsAlt) {
+        return [{ key: 'Delete', label: 'Del' }];
+      }
+
+      if (this.holdsCtrl) {
+        return CTRL_KEYS;
+      }
+
+      return [{ key: 'PrintScreen', label: this.t('harvester.virtualMachine.detail.console.shortcutMenu.printScreen') }];
+    },
+
+    showFunctionKeys() {
+      return !this.holdsCtrl || this.holdsAlt;
     },
 
     heldCombo() {
@@ -84,7 +120,12 @@ export default {
     sendKey(key) {
       const modifiers = MODIFIERS.map((M) => M.key).filter((K) => this.held.includes(K));
 
-      this.$emit('send-keys', [...modifiers, key]);
+      // Ctrl+Alt+Del restarts most guests, so it goes through the same confirmation as its button.
+      if (key === 'Delete' && this.holdsCtrl && this.holdsAlt) {
+        this.$emit('ctrl-alt-del');
+      } else {
+        this.$emit('send-keys', [...modifiers, key]);
+      }
       this.held = [];
     },
   },
@@ -165,16 +206,21 @@ export default {
         <rc-dropdown-group :label="t('harvester.virtualMachine.detail.console.shortcutMenu.keys')">
           <div class="shortcut-menu__row">
             <rc-dropdown-item
+              v-for="option in keyOptions"
+              :key="option.key"
               class="shortcut-menu__chip"
-              data-testid="vnc-key-PrintScreen"
-              @click="sendKey('PrintScreen')"
+              :data-testid="`vnc-key-${ option.key }`"
+              @click="sendKey(option.key)"
             >
-              {{ t('harvester.virtualMachine.detail.console.shortcutMenu.printScreen') }}
+              {{ option.label }}
             </rc-dropdown-item>
           </div>
         </rc-dropdown-group>
 
-        <rc-dropdown-group :label="t('harvester.virtualMachine.detail.console.shortcutMenu.functionKeys')">
+        <rc-dropdown-group
+          v-if="showFunctionKeys"
+          :label="t('harvester.virtualMachine.detail.console.shortcutMenu.functionKeys')"
+        >
           <div class="shortcut-menu__grid">
             <rc-dropdown-item
               v-for="key in functionKeys"

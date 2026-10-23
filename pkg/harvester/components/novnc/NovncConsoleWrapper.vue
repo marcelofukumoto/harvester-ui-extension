@@ -43,9 +43,32 @@ const SHORT_KEYS = {
 };
 
 const FUNCTION_KEYS = {
+  Delete: {
+    label: 'Del',
+    value: KeyTable.XK_Delete,
+  },
   PrintScreen: {
     label: 'Print Screen',
     value: KeyTable.XK_Print,
+  },
+};
+
+const NORMAL_KEYS = {
+  KeyN: {
+    label: 'N',
+    value: KeyTable.XK_n,
+  },
+  KeyT: {
+    label: 'T',
+    value: KeyTable.XK_t,
+  },
+  KeyW: {
+    label: 'W',
+    value: KeyTable.XK_w,
+  },
+  KeyY: {
+    label: 'Y',
+    value: KeyTable.XK_y,
   },
 };
 
@@ -220,6 +243,7 @@ export default {
       return {
         ...SHORT_KEYS,
         ...FUNCTION_KEYS,
+        ...NORMAL_KEYS,
         ...F_KEYS,
       };
     },
@@ -526,6 +550,7 @@ export default {
             @send-keys="sendKeys"
             @send-shortcut="sendCustomKeys"
             @manage="showKeysModal"
+            @ctrl-alt-del="ctrlAltDelete"
           />
         </div>
 
