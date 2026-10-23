@@ -1015,6 +1015,14 @@ harvester:
         shortcutKeys: Shortcut keys
         softReboot: Soft reboot
         view: View
+        shortcutMenu:
+          yourShortcuts: Your shortcuts
+          holdModifiers: Hold modifiers
+          holdHint: 'The next key you pick is sent as {combo}+key.'
+          keys: Keys
+          printScreen: Print Screen
+          functionKeys: Function keys
+          manage: Manage custom shortcuts…
         hint: Clicking the console captures your keyboard. To send a shortcut, use the Shortcut keys menu.
         connection:
           menuLabel: Connection

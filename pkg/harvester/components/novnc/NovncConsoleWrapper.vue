@@ -8,10 +8,11 @@ import KeyTable from '@novnc/novnc/core/input/keysym';
 import * as KeyboardUtil from '@novnc/novnc/core/input/util';
 import { HCI } from '../../types';
 import NovncConsole, { CONSOLE_STATUS } from './NovncConsole';
-import NovncConsoleItem from './NovncConsoleItem';
 import NovncConsoleCustomKeys from './NovncConsoleCustomKeys';
 import NovncConnectionStatus from './NovncConnectionStatus';
 import NovncIcon from './NovncIcon';
+import NovncShortcutKeysMenu from './NovncShortcutKeysMenu';
+import { normalizeShortcut } from './shortcuts';
 import { normalizeZoom } from './ZoomableRFB';
 
 const CONSOLE_SETTINGS_KEY = 'harvester-vnc-console-settings';
@@ -47,32 +48,9 @@ const SHORT_KEYS = {
 };
 
 const FUNCTION_KEYS = {
-  Delete: {
-    label: 'Del',
-    value: KeyTable.XK_Delete,
-  },
   PrintScreen: {
     label: 'Print Screen',
     value: KeyTable.XK_Print,
-  },
-};
-
-const NORMAL_KEYS = {
-  KeyN: {
-    label: 'N',
-    value: KeyTable.XK_n,
-  },
-  KeyT: {
-    label: 'T',
-    value: KeyTable.XK_t,
-  },
-  KeyW: {
-    label: 'W',
-    value: KeyTable.XK_w,
-  },
-  KeyY: {
-    label: 'Y',
-    value: KeyTable.XK_y,
   },
 };
 
@@ -130,7 +108,7 @@ const F_KEYS = {
 export default {
   name:       'NovncConsoleWrapper',
   components: {
-    ModalWithCard, RcButton, NovncConsole, NovncConsoleItem, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon
+    ModalWithCard, RcButton, NovncConsole, NovncConsoleCustomKeys, NovncConnectionStatus, NovncIcon, NovncShortcutKeysMenu
   },
 
   async fetch() {
@@ -153,7 +131,6 @@ export default {
 
   data() {
     return {
-      keysRecord:        [],
       vmResource:        {},
       renderKeysModal:   false,
       settings:          { ...DEFAULT_SETTINGS },
@@ -194,12 +171,7 @@ export default {
     },
 
     preferredShortcutKeys() {
-      return (this.savedShortcutKeys || []).map((item) => {
-        return {
-          label: item.map((K) => K.key.charAt(0).toUpperCase() + K.key.slice(1)).join('+'),
-          value: item
-        };
-      });
+      return (this.savedShortcutKeys || []).map(normalizeShortcut).filter((shortcut) => shortcut.keys.length);
     },
 
     isConnected() {
@@ -240,31 +212,8 @@ export default {
       return {
         ...SHORT_KEYS,
         ...FUNCTION_KEYS,
-        ...NORMAL_KEYS,
         ...F_KEYS,
       };
-    },
-
-    keymap() {
-      const out = {
-        ...SHORT_KEYS,
-        PrintScreen: FUNCTION_KEYS.PrintScreen,
-        ...F_KEYS,
-      };
-
-      out.AltLeft = { ...SHORT_KEYS.AltLeft, keys: { PrintScreen: FUNCTION_KEYS.PrintScreen, ...F_KEYS } };
-      out.ControlLeft = {
-        ...SHORT_KEYS.ControlLeft,
-        keys: {
-          AltLeft: {
-            ...SHORT_KEYS.AltLeft,
-            keys: { Delete: FUNCTION_KEYS.Delete }
-          },
-          ...NORMAL_KEYS,
-        },
-      };
-
-      return out;
     },
 
     hasSoftRebootAction() {
@@ -338,27 +287,21 @@ export default {
       this.$refs.novncConsole.disconnect();
     },
 
-    update({ key, pos }) {
-      this.keysRecord.splice(pos, this.keysRecord.length - pos, key);
-    },
-
-    // Send function key, e.g. ALT + F
-    sendKeys() {
+    // Press the keys in order, then release them in reverse, e.g. Ctrl+Alt+F2.
+    sendKeys(keys) {
       if (!this.canSendKeys || !this.$refs.novncConsole) {
         return;
       }
 
-      this.keysRecord.forEach((key) => {
+      keys.forEach((key) => {
         this.$refs.novncConsole.sendKey(this.allKeys[key].value, key, true);
       });
 
-      [...this.keysRecord].reverse().forEach((key) => {
+      [...keys].reverse().forEach((key) => {
         this.$refs.novncConsole.sendKey(this.allKeys[key].value, key, false);
       });
 
-      this.$refs.popover.hide();
-      this.keysRecord = [];
-      this.$refs.novncConsole.focus();
+      this.focusConsole();
     },
 
     sendCustomKeys(keys) {
@@ -376,7 +319,12 @@ export default {
         this.$refs.novncConsole.sendKey(KeyboardUtil.getKeysym(K), KeyboardUtil.getKeycode(K), false);
       });
 
-      this.$refs.novncConsole.focus();
+      this.focusConsole();
+    },
+
+    // The shortcut menu hands focus back to its trigger as it closes, so take it on the next tick.
+    focusConsole() {
+      this.$nextTick(() => this.$refs.novncConsole?.focus());
     },
 
     showKeysModal() {
@@ -497,33 +445,14 @@ export default {
         </div>
 
         <div class="console-toolbar__group">
-          <v-dropdown
-            ref="popover"
-            placement="bottom-start"
-            trigger="click"
-            :container="false"
-            @auto-hide="keysRecord = []"
-          >
-            <RcButton
-              variant="tertiary"
-              left-icon="keyboard"
-              right-icon="chevron-down"
-              data-testid="vnc-shortcut-keys"
-              :disabled="!canSendKeys"
-            >
-              {{ t("harvester.virtualMachine.detail.console.shortcutKeys") }}
-            </RcButton>
-
-            <template #popper>
-              <novnc-console-item
-                :items="keymap"
-                :path="keysRecord"
-                :pos="0"
-                @update="update"
-                @send-keys="sendKeys"
-              />
-            </template>
-          </v-dropdown>
+          <NovncShortcutKeysMenu
+            :disabled="!canSendKeys"
+            :shortcuts="preferredShortcutKeys"
+            :can-manage="!hideCustomKeysBar"
+            @send-keys="sendKeys"
+            @send-shortcut="sendCustomKeys"
+            @manage="showKeysModal"
+          />
         </div>
 
         <span
