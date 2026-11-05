@@ -183,6 +183,17 @@ describe('health components', () => {
 
     expect(w.findComponent(ComponentChecksTable).props('rows').map((r) => r.id)).toStrictEqual(['h/a']);
   });
+  it('takes the query example of the box, state for the severity', async() => {
+    const w = await mountSummary({
+      healthSummaries:  [summaryOf({ x: { errorCount: 1, warningCount: 1 } })],
+      componentHealths: [healthOf('h', 'x', { a: { severity: 'Error' }, b: { severity: 'Warning' } })],
+    });
+
+    await w.findComponent(queryInput).vm.$emit('update:value', 'state:error');
+    await flushPromises();
+
+    expect(w.findComponent(ComponentChecksTable).props('rows').map((r) => r.id)).toStrictEqual(['h/a']);
+  });
   it('only offers the ignored checks when there are some', async() => {
     const w = await mountSummary({
       healthSummaries:  [summaryOf({ x: { warningCount: 1 } })],

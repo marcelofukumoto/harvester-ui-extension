@@ -78,7 +78,7 @@ function queryField(id, labelKey, value) {
 }
 
 // what the filter box can search on a check, which is what the rows hold the rest of the data in
-const queryFields = [
+const suggestedQueryFields = [
   queryField('severity', 'severity', 'severity'),
   queryField('component', 'component', 'component'),
   queryField('check', 'check', 'checkName'),
@@ -86,6 +86,9 @@ const queryFields = [
   queryField('resource', 'affectedCount', (check) => allAffectedResourceNames(check)),
   queryField('node', 'node', 'node'),
 ];
+
+// the box's placeholder gives state:error as its example, here that is the severity
+const queryFields = [...suggestedQueryFields, { ...queryField('state', 'severity', 'severity'), queryOnly: true }];
 
 const checks = computed(() => {
   const result = [];
@@ -209,6 +212,7 @@ watch(query, (value) => {
         <TableViewQueryInput
           v-model:value="query"
           :fields="queryFields"
+          :filter-fields="suggestedQueryFields"
           :rows="shownChecks"
         />
         <Checkbox
