@@ -14,7 +14,6 @@ import {
 
 const store = useStore();
 const { t } = useI18n(store);
-const table = ref(null);
 const loading = ref(true);
 const healthSummaries = ref([]);
 const componentHealths = ref([]);
@@ -144,9 +143,6 @@ onMounted(async() => {
       store.dispatch('harvester/findAll', { type: HCI.COMPONENT_HEALTH }),
       store.dispatch('harvester/findAll', { type: HCI.HEALTH_IGNORE_RULE }),
     ]);
-
-    // the table has no prop for rows that start open, and the problems should not take a click to see
-    rows.value.filter((row) => row.errorCount || row.warningCount).forEach((row) => table.value?.toggleExpand(row));
   } catch (err) {
     console.error('Failed fetching component health with error:', err); // eslint-disable-line no-console
   } finally {
@@ -161,7 +157,6 @@ function toggleSeverity(severity, enabled) {
 
 <template>
   <SortableTable
-    ref="table"
     :rows="rows"
     :headers="headers"
     :loading="loading"

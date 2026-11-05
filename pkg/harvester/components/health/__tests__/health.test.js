@@ -34,15 +34,12 @@ const opts = (props = {}) => {
   return { global: { plugins: [store], stubs: { 'v-dropdown': { template: '<div><slot /><slot name="popper" /></div>' } } } };
 };
 
-const toggleExpand = jest.fn();
-
 // renders the summary rows with every sub-row open, and the checks of each sub-row
 const summaryTable = {
   props: ['rows'],
   data() {
     return { headerSlotAtMount: !!this.$slots['header-left'] };
   },
-  methods:  { toggleExpand },
   template: `<div>
     <span v-if="headerSlotAtMount" class="header-slot-at-mount" />
     <slot name="header-left" />
@@ -54,8 +51,6 @@ const summaryTable = {
 const checksTable = { props: ['rows'], template: '<div class="checks">{{ rows.map(r => r.id + ":" + r.severityRank).join(",") }}</div>' };
 
 const mountSummary = async(props) => {
-  toggleExpand.mockClear();
-
   const base = opts(props);
   const w = vtuMount(HealthSummaryTable, { ...base, global: { ...base.global, stubs: { ...base.global.stubs, SortableTable: summaryTable } } });
 
@@ -98,15 +93,6 @@ describe('health components', () => {
     });
 
     expect(w.find('.summary').text()).toBe('a/x:0,a/y:2,a/z:1');
-  });
-  it('opens the rows with errors or warnings', async() => {
-    await mountSummary({
-      healthSummaries: [summaryOf({
-        x: { errorCount: 1 }, y: {}, z: { warningCount: 2 }
-      })]
-    });
-
-    expect(toggleExpand.mock.calls.map(([row]) => row.component)).toStrictEqual(['x', 'z']);
   });
   it('shows the checks of a component in its sub-row', async() => {
     const w = await mountSummary({
