@@ -514,14 +514,13 @@ harvester:
       vmMetrics:
         label: Virtual Machine Metrics
       healthSummary:
-        label: Health Summary
         component: Component
         severity: Severity
         errorCount: Errors
         warningCount: Warnings
         lastUpdatedAt: Last Updated
       componentHealth:
-        label: Component Health
+        label: Components
         filter: Filter
         component: Component
         node: Node
