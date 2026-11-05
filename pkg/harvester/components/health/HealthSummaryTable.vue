@@ -230,7 +230,7 @@ watch(query, (value) => {
     <template #cell:component="{row}">
       <button
         type="button"
-        class="btn btn-sm role-link pl-0"
+        class="btn btn-sm role-link component-name"
         :aria-expanded="!!table?.isExpanded(row)"
         @click="table.toggleExpand(row)"
       >
@@ -256,6 +256,13 @@ watch(query, (value) => {
   .component-health-filter {
     display: flex;
     align-items: center;
+  }
+
+  // a small button is taller than the table's rows
+  .component-name {
+    min-height: 0;
+    line-height: inherit;
+    padding: 0;
   }
 
   // the shell has this look for a table in a sub-row from 3.0.15, this can go with that bump
