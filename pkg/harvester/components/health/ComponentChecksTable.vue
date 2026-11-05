@@ -15,11 +15,6 @@ const props = defineProps({
     type:     Array,
     required: true,
   },
-  // tells an empty severity filter result from a health report without any check
-  hasChecks: {
-    type:    Boolean,
-    default: false,
-  },
   ignoreRules: {
     type:    Array,
     default: () => [],
@@ -159,7 +154,7 @@ async function restoreIgnored(ignoredBy) {
     v-if="!rows.length"
     class="text-muted"
   >
-    {{ hasChecks ? t('harvester.dashboard.sections.componentHealth.noMatchingChecks') : t('harvester.dashboard.sections.componentHealth.noIssues') }}
+    {{ t('harvester.dashboard.sections.componentHealth.noIssues') }}
   </div>
   <SortableTable
     v-else

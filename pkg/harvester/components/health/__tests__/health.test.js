@@ -52,11 +52,23 @@ const summaryTable = {
   </div>`,
 };
 
+const queryInput = {
+  name: 'TableViewQueryInput', emits: ['update:value'], template: '<div class="query" />'
+};
+
 const checksTable = { props: ['rows'], template: '<div class="checks">{{ rows.map(r => r.id + ":" + r.severityRank).join(",") }}</div>' };
 
 const mountSummary = async(props) => {
   const base = opts(props);
-  const w = vtuMount(HealthSummaryTable, { ...base, global: { ...base.global, stubs: { ...base.global.stubs, SortableTable: summaryTable } } });
+  const w = vtuMount(HealthSummaryTable, {
+    ...base,
+    global: {
+      ...base.global,
+      stubs: {
+        ...base.global.stubs, SortableTable: summaryTable, TableViewQueryInput: queryInput
+      }
+    }
+  });
 
   await flushPromises();
 
@@ -139,9 +151,11 @@ describe('health components', () => {
     const w = await mountSummary({ healthSummaries: [summaryOf({ x: {} })] });
 
     expect(w.find('.header-slot-at-mount').exists()).toBe(true);
-    expect(w.text()).toContain('componentHealth.filter');
+    expect(w.find('.query').exists()).toBe(true);
   });
-  it('filters the checks of every component and keeps their rows', async() => {
+  it('filters the checks with the query, hides the rows without a match and opens the others', async() => {
+    toggleExpand.mockClear();
+
     const w = await mountSummary({
       healthSummaries:  [summaryOf({ x: { errorCount: 1 }, y: { errorCount: 1, warningCount: 1 } })],
       componentHealths: [
@@ -150,13 +164,24 @@ describe('health components', () => {
       ],
     });
 
-    // the first filter is Error
-    await w.findAllComponents(Checkbox)[0].vm.$emit('update:value', false);
+    await w.find('.query').trigger('click');
+    await w.findComponent(queryInput).vm.$emit('update:value', 'severity:Warning');
+    await flushPromises();
 
-    const tables = w.findAllComponents(ComponentChecksTable);
+    expect(w.findAllComponents(ComponentChecksTable).map((c) => c.props('rows').map((r) => r.id))).toStrictEqual([['h2/c']]);
+    expect(toggleExpand.mock.calls.map(([row]) => row.component)).toStrictEqual(['y']);
+  });
+  it('finds a check by a resource it affects, also past the ones the row shows', async() => {
+    const names = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`default/vm-${ i }`, {}]));
+    const w = await mountSummary({
+      healthSummaries:  [summaryOf({ x: { errorCount: 1 } })],
+      componentHealths: [healthOf('h', 'x', { a: { severity: 'Error', affectedResources: { names } }, b: { severity: 'Error' } })],
+    });
 
-    expect(tables.map((c) => c.props('rows').map((r) => r.id))).toStrictEqual([[], ['h2/c']]);
-    expect(tables[0].props('hasChecks')).toBe(true);
+    await w.findComponent(queryInput).vm.$emit('update:value', 'vm-7');
+    await flushPromises();
+
+    expect(w.findComponent(ComponentChecksTable).props('rows').map((r) => r.id)).toStrictEqual(['h/a']);
   });
   it('only offers the ignored checks when there are some', async() => {
     const w = await mountSummary({
@@ -183,7 +208,7 @@ describe('health components', () => {
   it('expands a long message', async() => {
     const message = 'x'.repeat(150);
     const table = { props: ['rows'], template: '<div><slot name="cell:message" :row="rows[0]" :value="rows[0].message" /></div>' };
-    const w = mountChecks({ rows: [{ id: 'a', message }], hasChecks: true }, { SortableTable: table });
+    const w = mountChecks({ rows: [{ id: 'a', message }] }, { SortableTable: table });
 
     expect(w.text()).not.toContain(message);
 
@@ -191,8 +216,7 @@ describe('health components', () => {
 
     expect(w.text()).toContain(message);
   });
-  it('tells an empty filter result from a report without checks', () => {
-    expect(mountChecks({ rows: [], hasChecks: true }).text()).toContain('noMatchingChecks');
-    expect(mountChecks({ rows: [], hasChecks: false }).text()).toContain('noIssues');
+  it('says when a component has no checks', () => {
+    expect(mountChecks({ rows: [] }).text()).toContain('noIssues');
   });
 });

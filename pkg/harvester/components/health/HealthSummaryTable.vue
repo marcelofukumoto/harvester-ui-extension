@@ -1,11 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { HCI } from '../../types';
 import { useStore } from 'vuex';
 import { useI18n } from '@shell/composables/useI18n';
 import SortableTable from '@shell/components/SortableTable';
 import { BadgeState } from '@components/BadgeState';
 import { Checkbox } from '@components/Form/Checkbox';
+import TableViewQueryInput from '@shell/components/TableViews/TableViewQueryInput.vue';
+import { applyQueryExpression } from '@shell/utils/table-views/filter-rows';
+import { parseQueryExpression } from '@shell/utils/table-views/query';
 import ComponentChecksTable from './ComponentChecksTable.vue';
 import {
   COMPONENT_HEALTH_SEVERITIES, HEALTH_SUMMARY_SEVERITY_RANK, NODE_LABEL, activeAffectedResourceNames, allAffectedResourceNames,
@@ -63,7 +66,26 @@ const headers = [
 ];
 
 const showIgnored = ref(false);
-const selectedSeverities = ref(COMPONENT_HEALTH_SEVERITIES);
+const query = ref('');
+
+function queryField(id, labelKey, value) {
+  return {
+    id,
+    label:   t(`harvester.dashboard.sections.componentHealth.${ labelKey }`),
+    isLabel: false,
+    header:  { name: id, value },
+  };
+}
+
+// what the filter box can search on a check, which is what the rows hold the rest of the data in
+const queryFields = [
+  queryField('severity', 'severity', 'severity'),
+  queryField('component', 'component', 'component'),
+  queryField('check', 'check', 'checkName'),
+  queryField('message', 'message', 'message'),
+  queryField('resource', 'affectedCount', (check) => allAffectedResourceNames(check)),
+  queryField('node', 'node', 'node'),
+];
 
 const checks = computed(() => {
   const result = [];
@@ -103,10 +125,7 @@ const hasIgnored = computed(() => {
   return checks.value.some((check) => check.ignored || allAffectedResourceNames(check).length !== activeAffectedResourceNames(check).length);
 });
 
-const filters = computed(() => COMPONENT_HEALTH_SEVERITIES.map((severity) => ({
-  severity,
-  count: shownChecks.value.filter((check) => check.severity === severity).length,
-})));
+const matchingChecks = computed(() => applyQueryExpression(shownChecks.value, parseQueryExpression(query.value, queryFields), queryFields));
 
 const rows = computed(() => {
   const result = [];
@@ -116,15 +135,19 @@ const rows = computed(() => {
     const lastUpdatedAt = healthSummary?.status?.lastUpdatedAt;
 
     Object.entries(components).forEach(([component, counts]) => {
-      const componentChecks = shownChecks.value.filter((check) => check.component === component);
+      const checks = matchingChecks.value.filter((check) => check.component === component);
+
+      if (query.value && !checks.length) {
+        return;
+      }
+
       const row = {
         id:           `${ healthSummary.id }/${ component }`,
         component,
         errorCount:   counts?.errorCount || 0,
         warningCount: counts?.warningCount || 0,
         lastUpdatedAt,
-        hasChecks:    componentChecks.length > 0,
-        checks:       componentChecks.filter((check) => selectedSeverities.value.includes(check.severity)),
+        checks,
       };
 
       // the table sorts on a row property, so the severity has to be on the row
@@ -151,9 +174,12 @@ onMounted(async() => {
   }
 });
 
-function toggleSeverity(severity, enabled) {
-  selectedSeverities.value = enabled ? [...selectedSeverities.value, severity] : selectedSeverities.value.filter((filter) => filter !== severity);
-}
+// a closed row would hide what the filter found
+watch(query, (value) => {
+  if (value) {
+    rows.value.filter((row) => !table.value?.isExpanded(row)).forEach((row) => table.value?.toggleExpand(row));
+  }
+});
 </script>
 
 <template>
@@ -162,6 +188,7 @@ function toggleSeverity(severity, enabled) {
     :rows="rows"
     :headers="headers"
     :loading="loading"
+    :no-rows-key="query ? 'harvester.dashboard.sections.componentHealth.noMatchingChecks' : undefined"
     key-field="id"
     :search="false"
     :table-actions="false"
@@ -176,32 +203,14 @@ function toggleSeverity(severity, enabled) {
     <!-- always passed, the table only reads its slots once, before the rows arrive -->
     <template #header-left>
       <div
-        v-if="rows.length"
+        v-if="healthSummaries.length"
         class="component-health-filter"
       >
-        <v-dropdown
-          popper-class="component-health-filter-dropdown"
-          :triggers="['click']"
-          placement="bottom-start"
-          :distance="20"
-        >
-          <button class="btn bg-primary">
-            {{ t('harvester.dashboard.sections.componentHealth.filter') }}
-          </button>
-
-          <template #popper>
-            <div class="filter-popup">
-              <Checkbox
-                v-for="filter in filters"
-                :key="filter.severity"
-                :value="selectedSeverities.includes(filter.severity)"
-                type="checkbox"
-                :label="`${ filter.severity } (${ filter.count })`"
-                @update:value="toggleSeverity(filter.severity, $event)"
-              />
-            </div>
-          </template>
-        </v-dropdown>
+        <TableViewQueryInput
+          v-model:value="query"
+          :fields="queryFields"
+          :rows="shownChecks"
+        />
         <Checkbox
           v-if="hasIgnored"
           v-model:value="showIgnored"
@@ -234,7 +243,6 @@ function toggleSeverity(severity, enabled) {
           <ComponentChecksTable
             class="sub-table"
             :rows="row.checks"
-            :has-checks="row.hasChecks"
             :ignore-rules="ignoreRules"
             :show-ignored="showIgnored"
           />
@@ -248,12 +256,6 @@ function toggleSeverity(severity, enabled) {
   .component-health-filter {
     display: flex;
     align-items: center;
-  }
-
-  .component-health-filter-dropdown .filter-popup {
-    display: grid;
-    gap: 10px;
-    padding: 10px;
   }
 
   // the shell has this look for a table in a sub-row from 3.0.15, this can go with that bump
