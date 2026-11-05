@@ -14,6 +14,7 @@ import {
 
 const store = useStore();
 const { t } = useI18n(store);
+const table = ref(null);
 const loading = ref(true);
 const healthSummaries = ref([]);
 const componentHealths = ref([]);
@@ -157,6 +158,7 @@ function toggleSeverity(severity, enabled) {
 
 <template>
   <SortableTable
+    ref="table"
     :rows="rows"
     :headers="headers"
     :loading="loading"
@@ -214,6 +216,17 @@ function toggleSeverity(severity, enabled) {
         :color="severityColor(healthSummarySeverity(row))"
         :label="healthSummarySeverity(row)"
       />
+    </template>
+    <!-- the table's chevron can't take the keyboard focus, this opens the row from the keyboard -->
+    <template #cell:component="{row}">
+      <button
+        type="button"
+        class="btn btn-sm role-link pl-0"
+        :aria-expanded="!!table?.isExpanded(row)"
+        @click="table.toggleExpand(row)"
+      >
+        {{ row.component }}
+      </button>
     </template>
     <template #sub-row="{row, fullColspan}">
       <tr class="sub-row">

@@ -34,16 +34,20 @@ const opts = (props = {}) => {
   return { global: { plugins: [store], stubs: { 'v-dropdown': { template: '<div><slot /><slot name="popper" /></div>' } } } };
 };
 
+const toggleExpand = jest.fn();
+
 // renders the summary rows with every sub-row open, and the checks of each sub-row
 const summaryTable = {
   props: ['rows'],
   data() {
     return { headerSlotAtMount: !!this.$slots['header-left'] };
   },
+  methods:  { toggleExpand, isExpanded: () => false },
   template: `<div>
     <span v-if="headerSlotAtMount" class="header-slot-at-mount" />
     <slot name="header-left" />
     <div class="summary">{{ rows.map(r => r.id + ":" + r.severityRank).join(",") }}</div>
+    <div v-for="row in rows" :key="row.id" class="name"><slot name="cell:component" :row="row" /></div>
     <div v-for="row in rows" :key="row.id" :class="'sub-' + row.component"><slot name="sub-row" :row="row" :fullColspan="1" /></div>
   </div>`,
 };
@@ -93,6 +97,19 @@ describe('health components', () => {
     });
 
     expect(w.find('.summary').text()).toBe('a/x:0,a/y:2,a/z:1');
+  });
+  it('opens a row from the component name, which takes the keyboard focus', async() => {
+    toggleExpand.mockClear();
+
+    const w = await mountSummary({ healthSummaries: [summaryOf({ x: {} })] });
+    const name = w.find('.name button');
+
+    expect(name.text()).toBe('x');
+    expect(name.attributes('aria-expanded')).toBe('false');
+
+    await name.trigger('click');
+
+    expect(toggleExpand.mock.calls.map(([row]) => row.component)).toStrictEqual(['x']);
   });
   it('shows the checks of a component in its sub-row', async() => {
     const w = await mountSummary({
